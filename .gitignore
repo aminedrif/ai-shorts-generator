@@ -1,0 +1,36 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# Application workspace directories
+downloads/
+output/
+temp/
+
+# Media files
+*.mp4
+*.mkv
+*.webm
+*.mp3
+*.wav
+*.m4a
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
