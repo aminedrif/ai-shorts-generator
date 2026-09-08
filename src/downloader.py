@@ -1,10 +1,12 @@
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 from typing import Dict, Any, Optional
 import yt_dlp
 from src.config import config, get_ffmpeg_bin
+from src.logger import logger
 
 
 def sanitize_filename(name: str) -> str:
@@ -61,12 +63,43 @@ class VideoDownloader:
         # Handle YouTube download
         ffmpeg_exe = get_ffmpeg_bin()
         output_template = str(self.temp_dir / "%(title)s_%(id)s.%(ext)s")
+
+        last_log_time = 0.0
+
+        def download_progress_hook(d):
+            nonlocal last_log_time
+            status = d.get("status")
+            if status == "downloading":
+                now = time.time()
+                if now - last_log_time >= 3.0:
+                    last_log_time = now
+                    total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+                    downloaded = d.get("downloaded_bytes", 0)
+                    speed = d.get("speed") or 0
+                    speed_str = f"{speed / (1024 * 1024):.1f} MB/s" if speed else "calculating..."
+                    if total > 0:
+                        pct = (downloaded / total) * 100
+                        mb_down = downloaded / (1024 * 1024)
+                        mb_tot = total / (1024 * 1024)
+                        logger.info(f"[download] {pct:.1f}% ({mb_down:.0f}MB / {mb_tot:.0f}MB) at {speed_str}")
+                    else:
+                        mb_down = downloaded / (1024 * 1024)
+                        logger.info(f"[download] {mb_down:.1f}MB at {speed_str}")
+            elif status == "finished":
+                logger.info("[download] Stream download complete. Merging streams...")
+
         ydl_opts = {
             "format": f"bestvideo[height<={resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<={resolution}][ext=mp4]/best",
             "outtmpl": output_template,
             "merge_output_format": "mp4",
             "ffmpeg_location": ffmpeg_exe,
             "noplaylist": True,
+            "socket_timeout": 30,
+            "retries": 15,
+            "fragment_retries": 15,
+            "http_chunk_size": 10485760,
+            "continuedl": True,
+            "progress_hooks": [download_progress_hook],
             "quiet": True,
             "no_warnings": True,
         }
