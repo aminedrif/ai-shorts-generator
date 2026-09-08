@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from faster_whisper import WhisperModel
 from src.config import config
+from src.logger import logger
 
 
 class VideoTranscriber:
@@ -28,6 +29,21 @@ class VideoTranscriber:
             )
         return self._model
 
+    def _execute_transcription(
+        self,
+        model: WhisperModel,
+        audio_path: Path,
+        language: Optional[str] = None,
+    ):
+        segments_raw, info = model.transcribe(
+            str(audio_path),
+            language=language,
+            word_timestamps=True,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+        )
+        return list(segments_raw), info
+
     def transcribe(
         self,
         audio_path: Path,
@@ -35,14 +51,29 @@ class VideoTranscriber:
     ) -> Dict[str, Any]:
         """
         Transcribes the audio file and extracts segment and word timestamps.
+        Falls back to CPU execution if GPU transcription fails.
         """
-        segments_raw, info = self.model.transcribe(
-            str(audio_path),
-            language=language,
-            word_timestamps=True,
-            vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500),
-        )
+        try:
+            segments_raw, info = self._execute_transcription(
+                self.model, audio_path, language=language
+            )
+        except Exception as exc:
+            if self.device != "cpu":
+                logger.warning(
+                    f"GPU transcription failed ({exc}). Falling back to CPU with int8 quantization."
+                )
+                self.device = "cpu"
+                self.compute_type = "int8"
+                self._model = WhisperModel(
+                    self.model_size,
+                    device="cpu",
+                    compute_type="int8",
+                )
+                segments_raw, info = self._execute_transcription(
+                    self._model, audio_path, language=language
+                )
+            else:
+                raise
 
         segments: List[Dict[str, Any]] = []
         full_text_parts: List[str] = []

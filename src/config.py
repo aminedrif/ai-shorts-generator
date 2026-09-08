@@ -101,6 +101,45 @@ def get_ffmpeg_bin() -> str:
     return "ffmpeg"
 
 
-# Initialize ffmpeg environment at import time
+def setup_cuda_dll_paths():
+    """
+    On Windows, locates NVIDIA CUDA/cuBLAS runtime DLLs from installed
+    Python packages (e.g. nvidia-cublas-cu12, nvidia-cuda-nvrtc-cu12)
+    and registers them with os.add_dll_directory and PATH so CTranslate2
+    and faster-whisper can find cublas64_12.dll and related libraries.
+    """
+    if os.name != "nt":
+        return
+
+    import sys
+    import site
+
+    dll_paths = set()
+    search_dirs = []
+    try:
+        search_dirs.extend(site.getsitepackages())
+    except Exception:
+        pass
+    search_dirs.append(os.path.dirname(sys.executable))
+
+    for base in search_dirs:
+        nvidia_dir = Path(base) / "nvidia"
+        if nvidia_dir.is_dir():
+            for sub in nvidia_dir.iterdir():
+                bin_dir = sub / "bin"
+                if bin_dir.is_dir():
+                    dll_paths.add(str(bin_dir))
+
+    for path_str in dll_paths:
+        try:
+            os.add_dll_directory(path_str)
+        except Exception:
+            pass
+        if path_str not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = path_str + os.pathsep + os.environ.get("PATH", "")
+
+
+# Initialize environment at import time
 get_ffmpeg_bin()
+setup_cuda_dll_paths()
 
