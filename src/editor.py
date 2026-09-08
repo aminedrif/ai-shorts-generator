@@ -114,10 +114,10 @@ class VideoEditor:
             self.generate_subtitles_srt(transcript_segments, start_time, end_time, srt_file)
 
             # Windows path escaping for ffmpeg subtitle filter
-            escaped_srt = str(srt_file).replace("\\", "/").replace(":", "\\:")
+            escaped_srt = str(srt_file.resolve()).replace("\\", "/").replace(":", "\\:")
             sub_style = "FontSize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=3,Outline=2,Alignment=2,MarginV=60"
             filter_complex.append(
-                f"{current_video_label}subtitles='{escaped_srt}':force_style='{sub_style}'[vout]"
+                f"{current_video_label}subtitles=filename='{escaped_srt}':force_style='{sub_style}'[vout]"
             )
             final_video_label = "[vout]"
         else:
@@ -137,7 +137,7 @@ class VideoEditor:
             "-ss", f"{start_time:.2f}",
             "-i", str(video_path),
             "-t", f"{duration:.2f}",
-            "-filter_complex", "".join(filter_complex),
+            "-filter_complex", ";".join(filter_complex),
             "-map", final_video_label,
             "-map", "0:a",
             *encoder_args,
@@ -155,7 +155,7 @@ class VideoEditor:
                 "-ss", f"{start_time:.2f}",
                 "-i", str(video_path),
                 "-t", f"{duration:.2f}",
-                "-filter_complex", "".join(filter_complex),
+                "-filter_complex", ";".join(filter_complex),
                 "-map", final_video_label,
                 "-map", "0:a",
                 "-c:v", "libx264",
@@ -169,7 +169,7 @@ class VideoEditor:
             result = subprocess.run(fallback_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
         if result.returncode != 0:
-            track_error(result.stderr, context="editor.render_clip")
+            track_error(RuntimeError(f"FFmpeg render failed: {result.stderr}"), context="editor.render_clip")
             raise RuntimeError(f"FFmpeg render failed: {result.stderr}")
 
         if srt_file and srt_file.exists():

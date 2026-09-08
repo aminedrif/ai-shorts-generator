@@ -20,13 +20,16 @@ class ErrorTracker:
 
     def record_error(
         self,
-        exc: Exception,
+        exc: Any,
         module: str = "general",
         task_id: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Captures exception details, formats traceback, and adds to history."""
-        tb_str = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+        if isinstance(exc, str):
+            exc = RuntimeError(exc)
+        tb = getattr(exc, "__traceback__", None)
+        tb_str = "".join(traceback.format_exception(type(exc), exc, tb))
         error_record = {
             "id": str(uuid.uuid4()),
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
