@@ -37,3 +37,17 @@ class AppConfig:
 
 
 config = AppConfig()
+
+
+def get_ffmpeg_bin() -> str:
+    """Finds ffmpeg binary from PATH or falls back to imageio_ffmpeg."""
+    import shutil
+    bin_path = shutil.which("ffmpeg")
+    if bin_path:
+        return bin_path
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return "ffmpeg"
+

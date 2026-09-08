@@ -2,7 +2,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from src.config import config
+from src.config import config, get_ffmpeg_bin
 from src.downloader import sanitize_filename
 
 
@@ -123,7 +123,7 @@ class VideoEditor:
             final_video_label = current_video_label
 
         cmd = [
-            "ffmpeg",
+            get_ffmpeg_bin(),
             "-y",
             "-ss", f"{start_time:.2f}",
             "-i", str(video_path),

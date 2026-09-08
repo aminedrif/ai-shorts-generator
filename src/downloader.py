@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional
 import yt_dlp
-from src.config import config
+from src.config import config, get_ffmpeg_bin
 
 
 def sanitize_filename(name: str) -> str:
@@ -28,7 +28,7 @@ class VideoDownloader:
             return audio_path
 
         cmd = [
-            "ffmpeg",
+            get_ffmpeg_bin(),
             "-y",
             "-i", str(video_path),
             "-vn",
