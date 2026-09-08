@@ -27,9 +27,11 @@ class ShortsPipeline:
         n_clips: int = 3,
         ratio: str = "9:16",
         burn_subtitles: bool = True,
-        style: str = "blurred_background",
+        style: str = "smart_crop",
         resolution: int = 1080,
         task_id: Optional[str] = None,
+        burn_hook_title: bool = True,
+        subtitle_style: str = "karaoke",
     ) -> Dict[str, Any]:
         """Runs the pipeline from ingestion to rendered clips."""
         start_time = time.time()
@@ -62,6 +64,8 @@ class ShortsPipeline:
                     ratio=ratio,
                     burn_subtitles=burn_subtitles,
                     style=style,
+                    hook_title=(h.hook or h.title) if burn_hook_title else None,
+                    subtitle_style=subtitle_style,
                 )
                 rendered_files.append({
                     "title": h.title,
