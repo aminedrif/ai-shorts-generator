@@ -1,6 +1,10 @@
 # AI Shorts Generator
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-brightgreen.svg)](https://www.python.org/downloads/)
+
 An open-source pipeline to extract high-engagement short vertical videos from long YouTube videos or local media files. Uses Whisper for timestamped speech transcription, LLMs (Google Gemini or OpenAI) for virality scoring, and FFmpeg for 9:16 vertical re-framing and subtitle overlay.
+
 
 ## Features
 
@@ -105,4 +109,4 @@ The web interface allows you to submit URLs, configure clip options, track job p
 
 ## License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
