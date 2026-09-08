@@ -34,8 +34,10 @@ class GenerateJobRequest(BaseModel):
     source: str = Field(description="YouTube link or path to local video file")
     n_clips: int = Field(default=3, ge=1, le=10)
     ratio: str = Field(default="9:16")
-    style: str = Field(default="blurred_background")
+    style: str = Field(default="smart_crop")
     burn_subtitles: bool = Field(default=True)
+    burn_hook_title: bool = Field(default=True)
+    subtitle_style: str = Field(default="karaoke")
     provider: Optional[str] = Field(default=None)
 
 
@@ -50,6 +52,8 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
             ratio=req.ratio,
             burn_subtitles=req.burn_subtitles,
             style=req.style,
+            burn_hook_title=req.burn_hook_title,
+            subtitle_style=req.subtitle_style,
             task_id=task_id,
         )
         tasks[task_id]["status"] = "completed"

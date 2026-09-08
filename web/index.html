@@ -352,10 +352,22 @@
             <div class="form-group">
               <label for="styleSelect">Re-framing Style</label>
               <select id="styleSelect">
+                <option value="smart_crop">Face-Track Smart Crop (Auto-Center)</option>
                 <option value="blurred_background">Blurred Background</option>
-                <option value="crop_center">Smart Center Crop</option>
+                <option value="crop_center">Center Crop</option>
               </select>
             </div>
+            <div class="form-group">
+              <label for="subtitleStyleSelect">Subtitle Style</label>
+              <select id="subtitleStyleSelect">
+                <option value="karaoke">Dynamic Karaoke (Word Highlight)</option>
+                <option value="classic">Classic Clean Subtitles</option>
+                <option value="none">No Subtitles</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
             <div class="form-group">
               <label for="providerSelect">LLM Provider</label>
               <select id="providerSelect">
@@ -363,13 +375,12 @@
                 <option value="openai">OpenAI</option>
               </select>
             </div>
-          </div>
-
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="subtitlesCheck" checked>
-              <span>Burn synchronized subtitles onto output</span>
-            </label>
+            <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 8px;">
+              <label class="checkbox-label">
+                <input type="checkbox" id="hookTitleCheck" checked>
+                <span>Burn hook title banner (first 3.5s)</span>
+              </label>
+            </div>
           </div>
 
           <button type="submit" id="submitBtn" class="btn-primary">Generate Shorts</button>
@@ -549,13 +560,16 @@
       taskStatus.style.borderColor = "var(--border)";
       taskStatusText.textContent = "Queuing generation job...";
 
+      const subStyle = document.getElementById("subtitleStyleSelect").value;
       const payload = {
         source: document.getElementById("sourceInput").value.trim(),
         n_clips: parseInt(document.getElementById("clipsCount").value),
         ratio: document.getElementById("ratioSelect").value,
         style: document.getElementById("styleSelect").value,
         provider: document.getElementById("providerSelect").value,
-        burn_subtitles: document.getElementById("subtitlesCheck").checked,
+        burn_subtitles: subStyle !== "none",
+        burn_hook_title: document.getElementById("hookTitleCheck").checked,
+        subtitle_style: subStyle,
       };
 
       try {
