@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from src.config import config
 from src.pipeline import ShortsPipeline
+from src.logger import logger, error_tracker, track_error
 
 app = FastAPI(title="AI Shorts Generator API", version="1.0.0")
 
@@ -40,6 +41,7 @@ class GenerateJobRequest(BaseModel):
 
 def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
     tasks[task_id]["status"] = "processing"
+    logger.info(f"Starting job {task_id} for source '{req.source}'")
     try:
         pipeline = ShortsPipeline(llm_provider=req.provider)
         result = pipeline.run(
@@ -48,12 +50,17 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
             ratio=req.ratio,
             burn_subtitles=req.burn_subtitles,
             style=req.style,
+            task_id=task_id,
         )
         tasks[task_id]["status"] = "completed"
         tasks[task_id]["result"] = result
+        logger.info(f"Job {task_id} completed successfully.")
     except Exception as e:
+        err_rec = track_error(e, module="server_worker", task_id=task_id, context={"source": req.source})
         tasks[task_id]["status"] = "failed"
         tasks[task_id]["error"] = str(e)
+        tasks[task_id]["error_id"] = err_rec["id"]
+        tasks[task_id]["traceback"] = err_rec["traceback"]
 
 
 @app.get("/api/health")
@@ -98,6 +105,33 @@ def list_clips():
         })
     clips.sort(key=lambda x: x["modified"], reverse=True)
     return {"clips": clips}
+
+
+@app.get("/api/errors")
+def get_errors(limit: int = 50, task_id: Optional[str] = None):
+    """Returns recent tracked errors."""
+    return {"errors": error_tracker.get_recent(limit=limit, task_id=task_id)}
+
+
+@app.delete("/api/errors")
+def clear_errors():
+    """Clears the in-memory error tracker history."""
+    error_tracker.clear()
+    return {"status": "cleared"}
+
+
+@app.get("/api/logs")
+def get_logs(lines: int = 100):
+    """Returns the most recent application log lines."""
+    log_file = config.logs_dir / "app.log"
+    if not log_file.exists():
+        return {"lines": []}
+    try:
+        with open(log_file, "r", encoding="utf-8", errors="replace") as f:
+            all_lines = f.readlines()
+            return {"lines": [line.rstrip() for line in all_lines[-lines:]]}
+    except Exception as e:
+        return {"error": str(e), "lines": []}
 
 
 # Serve frontend static files if present

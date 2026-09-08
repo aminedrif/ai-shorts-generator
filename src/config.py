@@ -15,6 +15,8 @@ class AppConfig:
     output_dir: Path = BASE_DIR / os.getenv("OUTPUT_DIR", "output")
     temp_dir: Path = BASE_DIR / os.getenv("TEMP_DIR", "temp")
 
+    logs_dir: Path = BASE_DIR / os.getenv("LOGS_DIR", "logs")
+
     # LLM Settings
     llm_provider: str = os.getenv("LLM_PROVIDER", "gemini").lower()
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
@@ -34,20 +36,48 @@ class AppConfig:
     def __post_init__(self):
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.temp_dir.mkdir(parents=True, exist_ok=True)
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
 
 
 config = AppConfig()
 
 
 def get_ffmpeg_bin() -> str:
-    """Finds ffmpeg binary from PATH or falls back to imageio_ffmpeg."""
+    """
+    Resolves the FFmpeg binary path.
+    If FFmpeg is not found in system PATH, falls back to imageio_ffmpeg,
+    creates a standardized ffmpeg.exe binary in the temp bin directory,
+    and prepends it to PATH so external subprocesses and yt-dlp discover it.
+    """
     import shutil
     bin_path = shutil.which("ffmpeg")
     if bin_path:
         return bin_path
+
     try:
         import imageio_ffmpeg
-        return imageio_ffmpeg.get_ffmpeg_exe()
+        source_exe = Path(imageio_ffmpeg.get_ffmpeg_exe())
+        if source_exe.exists():
+            bin_dir = config.temp_dir / "bin"
+            bin_dir.mkdir(parents=True, exist_ok=True)
+            target_exe = bin_dir / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+            if not target_exe.exists() or target_exe.stat().st_size != source_exe.stat().st_size:
+                try:
+                    shutil.copy2(source_exe, target_exe)
+                except Exception:
+                    pass
+
+            effective_exe = target_exe if target_exe.exists() else source_exe
+            bin_folder_str = str(effective_exe.parent)
+            if bin_folder_str not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = bin_folder_str + os.pathsep + os.environ.get("PATH", "")
+            return str(effective_exe)
     except Exception:
-        return "ffmpeg"
+        pass
+
+    return "ffmpeg"
+
+
+# Initialize ffmpeg environment at import time
+get_ffmpeg_bin()
 

@@ -220,6 +220,98 @@
       padding: 32px 0;
       font-size: 13px;
     }
+
+    .error-box {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(248, 81, 73, 0.1);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      border-radius: 6px;
+      display: none;
+    }
+
+    .btn-trace {
+      background: none;
+      border: none;
+      color: var(--accent-blue);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 4px 0;
+      text-decoration: underline;
+      display: block;
+      margin-top: 6px;
+    }
+
+    .trace-pre {
+      margin-top: 8px;
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 11px;
+      color: #ff7b72;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+    }
+
+    .logs-section {
+      margin-top: 24px;
+    }
+
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .logs-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-secondary {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+    }
+
+    .log-viewer {
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 11px;
+      color: #8b949e;
+      height: 180px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    .log-entry-error {
+      color: #ff7b72;
+    }
+
+    .log-entry-warn {
+      color: #d29922;
+    }
+
+    .log-entry-info {
+      color: #8b949e;
+    }
   </style>
 </head>
 <body>
@@ -285,6 +377,11 @@
 
         <div id="taskStatus" class="task-status">
           <p id="taskStatusText">Processing video...</p>
+          <div id="errorDetailsBox" class="error-box">
+            <div id="errorMessageText" style="font-size: 13px; font-weight: 500; color: #ff7b72;"></div>
+            <button id="toggleTraceBtn" class="btn-trace" type="button">View Detailed Traceback</button>
+            <pre id="tracePre" class="trace-pre"></pre>
+          </div>
         </div>
       </div>
 
@@ -296,6 +393,18 @@
         </div>
       </div>
     </div>
+
+    <!-- Activity & Error Logs -->
+    <div class="card logs-section">
+      <div class="logs-header">
+        <h2>System Activity & Error Logs</h2>
+        <div class="logs-actions">
+          <button id="refreshLogsBtn" class="btn-secondary" type="button">Refresh Logs</button>
+          <button id="clearErrorsBtn" class="btn-secondary" type="button">Clear Errors</button>
+        </div>
+      </div>
+      <div id="logViewer" class="log-viewer">Loading application logs...</div>
+    </div>
   </div>
 
   <script>
@@ -303,7 +412,58 @@
     const submitBtn = document.getElementById("submitBtn");
     const taskStatus = document.getElementById("taskStatus");
     const taskStatusText = document.getElementById("taskStatusText");
+    const errorDetailsBox = document.getElementById("errorDetailsBox");
+    const errorMessageText = document.getElementById("errorMessageText");
+    const toggleTraceBtn = document.getElementById("toggleTraceBtn");
+    const tracePre = document.getElementById("tracePre");
     const gallery = document.getElementById("gallery");
+    const logViewer = document.getElementById("logViewer");
+    const refreshLogsBtn = document.getElementById("refreshLogsBtn");
+    const clearErrorsBtn = document.getElementById("clearErrorsBtn");
+
+    toggleTraceBtn.addEventListener("click", () => {
+      const isHidden = tracePre.style.display === "none" || tracePre.style.display === "";
+      tracePre.style.display = isHidden ? "block" : "none";
+      toggleTraceBtn.textContent = isHidden ? "Hide Detailed Traceback" : "View Detailed Traceback";
+    });
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch("/api/logs?lines=60");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.lines || data.lines.length === 0) {
+          logViewer.textContent = "No log records available yet.";
+          return;
+        }
+
+        logViewer.innerHTML = data.lines.map(line => {
+          let cssClass = "log-entry-info";
+          if (line.includes("[ERROR]")) cssClass = "log-entry-error";
+          else if (line.includes("[WARNING]")) cssClass = "log-entry-warn";
+          return `<div class="${cssClass}">${escapeHtml(line)}</div>`;
+        }).join("");
+
+        logViewer.scrollTop = logViewer.scrollHeight;
+      } catch (err) {
+        logViewer.textContent = "Unable to fetch logs from server.";
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    refreshLogsBtn.addEventListener("click", fetchLogs);
+
+    clearErrorsBtn.addEventListener("click", async () => {
+      try {
+        await fetch("/api/errors", { method: "DELETE" });
+        fetchLogs();
+      } catch (e) {
+        console.error("Failed to clear errors", e);
+      }
+    });
 
     async function loadExistingClips() {
       try {
@@ -349,15 +509,27 @@
             clearInterval(interval);
             taskStatusText.textContent = "Completed successfully!";
             taskStatus.style.borderColor = "var(--accent)";
+            errorDetailsBox.style.display = "none";
             submitBtn.disabled = false;
             loadExistingClips();
+            fetchLogs();
           } else if (task.status === "failed") {
             clearInterval(interval);
-            taskStatusText.textContent = "Error: " + (task.error || "Generation failed");
+            taskStatusText.textContent = "Task failed.";
             taskStatus.style.borderColor = "var(--danger)";
+            errorMessageText.textContent = task.error || "Generation failed";
+            if (task.traceback) {
+              tracePre.textContent = task.traceback;
+              toggleTraceBtn.style.display = "block";
+            } else {
+              toggleTraceBtn.style.display = "none";
+            }
+            errorDetailsBox.style.display = "block";
             submitBtn.disabled = false;
+            fetchLogs();
           } else {
             taskStatusText.textContent = "Status: " + task.status + "... please wait";
+            fetchLogs();
           }
         } catch (e) {
           clearInterval(interval);
@@ -370,6 +542,9 @@
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
+      errorDetailsBox.style.display = "none";
+      tracePre.style.display = "none";
+      toggleTraceBtn.textContent = "View Detailed Traceback";
       taskStatus.style.display = "block";
       taskStatus.style.borderColor = "var(--border)";
       taskStatusText.textContent = "Queuing generation job...";
@@ -399,13 +574,18 @@
         taskStatusText.textContent = "Job queued. Starting transcription and analysis...";
         pollTask(data.task_id);
       } catch (err) {
-        taskStatusText.textContent = "Error: " + err.message;
+        taskStatusText.textContent = "Request Error";
+        errorMessageText.textContent = err.message;
+        errorDetailsBox.style.display = "block";
         taskStatus.style.borderColor = "var(--danger)";
         submitBtn.disabled = false;
+        fetchLogs();
       }
     });
 
     loadExistingClips();
+    fetchLogs();
+    setInterval(fetchLogs, 15000);
   </script>
 </body>
 </html>

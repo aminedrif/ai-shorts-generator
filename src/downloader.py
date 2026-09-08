@@ -59,11 +59,13 @@ class VideoDownloader:
             }
 
         # Handle YouTube download
+        ffmpeg_exe = get_ffmpeg_bin()
         output_template = str(self.temp_dir / "%(title)s_%(id)s.%(ext)s")
         ydl_opts = {
             "format": f"bestvideo[height<={resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<={resolution}][ext=mp4]/best",
             "outtmpl": output_template,
             "merge_output_format": "mp4",
+            "ffmpeg_location": ffmpeg_exe,
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
