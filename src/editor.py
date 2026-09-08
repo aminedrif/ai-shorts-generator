@@ -2,8 +2,9 @@ import os
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from src.config import config, get_ffmpeg_bin
+from src.config import config, get_ffmpeg_bin, is_nvenc_available
 from src.downloader import sanitize_filename
+from src.logger import logger, track_error
 
 
 def format_srt_time(seconds: float) -> str:
@@ -122,6 +123,14 @@ class VideoEditor:
         else:
             final_video_label = current_video_label
 
+        use_nvenc = config.video_encoder == "nvenc" or (
+            config.video_encoder == "auto" and is_nvenc_available()
+        )
+        if use_nvenc:
+            encoder_args = ["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "22", "-pix_fmt", "yuv420p"]
+        else:
+            encoder_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p"]
+
         cmd = [
             get_ffmpeg_bin(),
             "-y",
@@ -131,16 +140,36 @@ class VideoEditor:
             "-filter_complex", "".join(filter_complex),
             "-map", final_video_label,
             "-map", "0:a",
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "22",
+            *encoder_args,
             "-c:a", "aac",
             "-b:a", "192k",
             str(output_path),
         ]
 
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if result.returncode != 0 and use_nvenc:
+            logger.warning("NVENC encoding failed; retrying with libx264 software fallback: %s", result.stderr)
+            fallback_cmd = [
+                get_ffmpeg_bin(),
+                "-y",
+                "-ss", f"{start_time:.2f}",
+                "-i", str(video_path),
+                "-t", f"{duration:.2f}",
+                "-filter_complex", "".join(filter_complex),
+                "-map", final_video_label,
+                "-map", "0:a",
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "22",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                str(output_path),
+            ]
+            result = subprocess.run(fallback_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
         if result.returncode != 0:
+            track_error(result.stderr, context="editor.render_clip")
             raise RuntimeError(f"FFmpeg render failed: {result.stderr}")
 
         if srt_file and srt_file.exists():

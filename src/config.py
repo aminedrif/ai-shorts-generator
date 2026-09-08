@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 from dataclasses import dataclass
 from dotenv import load_dotenv
@@ -32,6 +33,7 @@ class AppConfig:
     # Video Settings
     default_aspect_ratio: str = os.getenv("DEFAULT_ASPECT_RATIO", "9:16")
     subtitle_font_size: int = int(os.getenv("SUBTITLE_FONT_SIZE", "24"))
+    video_encoder: str = os.getenv("VIDEO_ENCODER", "auto")
 
     def __post_init__(self):
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -40,6 +42,27 @@ class AppConfig:
 
 
 config = AppConfig()
+
+_NVENC_AVAILABLE = None
+
+
+def is_nvenc_available() -> bool:
+    """Checks whether NVIDIA NVENC hardware acceleration is supported by FFmpeg."""
+    global _NVENC_AVAILABLE
+    if _NVENC_AVAILABLE is not None:
+        return _NVENC_AVAILABLE
+    try:
+        res = subprocess.run(
+            [get_ffmpeg_bin(), "-encoders"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=5,
+        )
+        _NVENC_AVAILABLE = "h264_nvenc" in res.stdout
+    except Exception:
+        _NVENC_AVAILABLE = False
+    return _NVENC_AVAILABLE
 
 
 def get_ffmpeg_bin() -> str:
