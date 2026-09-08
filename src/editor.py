@@ -110,7 +110,9 @@ class VideoEditor:
 
         srt_file = None
         if burn_subtitles and transcript_segments:
-            srt_file = self.temp_dir / f"subs_{clean_title}_{int(start_time)}.srt"
+            import uuid
+            unique_sub_id = uuid.uuid4().hex[:8]
+            srt_file = self.temp_dir / f"subs_{unique_sub_id}_{int(start_time)}.srt"
             self.generate_subtitles_srt(transcript_segments, start_time, end_time, srt_file)
 
             # Windows path escaping for ffmpeg subtitle filter

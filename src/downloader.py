@@ -10,8 +10,8 @@ from src.logger import logger
 
 
 def sanitize_filename(name: str) -> str:
-    """Removes invalid filename characters and trims length."""
-    clean = re.sub(r'[\\/*?:"<>|]', "", name)
+    """Removes invalid filename characters, quotes, and trims length."""
+    clean = re.sub(r'[\\/*?:"<>|\'\`]', "", name)
     clean = re.sub(r"\s+", "_", clean).strip("._")
     return clean[:80] if clean else "video"
 

@@ -21,7 +21,7 @@ Evaluation criteria:
 1. Hook potential: Begins with an intriguing question, bold statement, or high-energy moment.
 2. Self-contained: The segment makes sense on its own without requiring the full context.
 3. Emotional or intellectual impact: Delivers an unexpected insight, humorous quote, or strong takeaway.
-4. Optimal duration: Each highlight MUST be between 20 and 60 seconds long.
+4. Optimal duration: Each highlight should be between 15 and 60 seconds long (or shorter if the total video is under 30 seconds).
 
 Return ONLY a valid JSON array of objects with the following schema:
 [
@@ -124,6 +124,22 @@ class HighlightAnalyzer:
             candidates = self._analyze_with_openai(transcript_str, n_clips)
         else:
             raise ValueError(f"Unsupported LLM provider: {self.provider}. Use 'gemini' or 'openai'.")
+
+        # Fallback if no highlights returned by the LLM
+        if not candidates and transcript_segments:
+            start_t = float(transcript_segments[0].get("start", 0.0))
+            end_t = float(transcript_segments[-1].get("end", start_t + 15.0))
+            first_text = transcript_segments[0].get("text", "Key Highlight")
+            candidates.append(
+                HighlightCandidate(
+                    title="Key Highlight",
+                    hook=first_text[:60].strip(),
+                    start=start_t,
+                    end=min(end_t, round(start_t + 60.0, 2)),
+                    score=85,
+                    reason="Automatically generated highlight covering key transcript moments.",
+                )
+            )
 
         # Sort by virality score descending
         candidates.sort(key=lambda c: c.score, reverse=True)
