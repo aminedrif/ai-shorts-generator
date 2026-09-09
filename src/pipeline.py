@@ -30,7 +30,7 @@ class ShortsPipeline:
         style: str = "smart_crop",
         resolution: int = 1080,
         task_id: Optional[str] = None,
-        burn_hook_title: bool = True,
+        burn_hook_title: bool = False,
         subtitle_style: str = "karaoke",
     ) -> Dict[str, Any]:
         """Runs the pipeline from ingestion to rendered clips."""

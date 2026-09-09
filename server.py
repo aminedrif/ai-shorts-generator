@@ -36,7 +36,7 @@ class GenerateJobRequest(BaseModel):
     ratio: str = Field(default="9:16")
     style: str = Field(default="smart_crop")
     burn_subtitles: bool = Field(default=True)
-    burn_hook_title: bool = Field(default=True)
+    burn_hook_title: bool = Field(default=False)
     subtitle_style: str = Field(default="karaoke")
     provider: Optional[str] = Field(default=None)
 
