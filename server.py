@@ -1,9 +1,10 @@
 import uuid
+import time
 from typing import Dict, Any, Optional
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -11,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from src.config import config
 from src.pipeline import ShortsPipeline
-from src.downloader import VideoDownloader
+from src.downloader import VideoDownloader, sanitize_filename
 from src.logger import logger, error_tracker, track_error
 
 app = FastAPI(title="AI Shorts Generator API", version="1.0.0")
@@ -136,6 +137,38 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "provider": config.llm_provider}
+
+
+UPLOAD_DIR = config.temp_dir / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@app.post("/api/upload")
+async def upload_video_file(file: UploadFile = File(...)):
+    """Uploads a local video file from the browser to the server for processing."""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file uploaded")
+
+    raw_name = Path(file.filename).name
+    ext = Path(raw_name).suffix or ".mp4"
+    clean_stem = sanitize_filename(Path(raw_name).stem)
+    dest_path = UPLOAD_DIR / f"{int(time.time())}_{clean_stem}{ext}"
+
+    try:
+        with open(dest_path, "wb") as f:
+            while chunk := await file.read(1024 * 1024 * 4):  # 4MB chunks
+                f.write(chunk)
+    except Exception as e:
+        logger.error(f"File upload error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save uploaded file: {e}")
+
+    logger.info(f"Uploaded file saved: {dest_path} ({dest_path.stat().st_size / (1024 * 1024):.1f} MB)")
+    return {
+        "status": "ok",
+        "file_path": str(dest_path.resolve()),
+        "filename": file.filename,
+        "size_bytes": dest_path.stat().st_size,
+    }
 
 
 @app.post("/api/generate")

@@ -2047,9 +2047,38 @@
     document.addEventListener('DOMContentLoaded', () => {
       fetchClips();
       setupUrlListener();
+      setupDragAndDrop();
       updateMockupPreview();
       restoreActiveTask();
     });
+
+    function setupDragAndDrop() {
+      const uploadBox = document.getElementById('uploadBox');
+      if (!uploadBox) return;
+      ['dragenter', 'dragover'].forEach(name => {
+        uploadBox.addEventListener(name, (e) => {
+          e.preventDefault();
+          uploadBox.style.borderColor = '#ffffff';
+          uploadBox.style.background = 'rgba(255, 255, 255, 0.05)';
+        });
+      });
+      ['dragleave', 'drop'].forEach(name => {
+        uploadBox.addEventListener(name, (e) => {
+          e.preventDefault();
+          uploadBox.style.borderColor = 'var(--border)';
+          uploadBox.style.background = 'rgba(18, 18, 21, 0.6)';
+        });
+      });
+      uploadBox.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          const file = e.dataTransfer.files[0];
+          currentSelectedFile = file;
+          document.getElementById('uploadBoxTitle').innerText = file.name;
+          loadVideoInPhone(URL.createObjectURL(file), file.name);
+        }
+      });
+    }
 
     // Phone Video Player & Media Management
     let currentPhoneMediaType = null; // 'youtube' | 'video' | null
@@ -2457,9 +2486,12 @@
       resetPhoneMedia();
     }
 
+    let currentSelectedFile = null;
+
     function handleFileSelected(event) {
       const file = event.target.files[0];
       if (file) {
+        currentSelectedFile = file;
         document.getElementById('uploadBoxTitle').innerText = file.name;
         const fileUrl = URL.createObjectURL(file);
         loadVideoInPhone(fileUrl, file.name);
@@ -2528,19 +2560,58 @@
 
     // Start Generation Job
     async function startGeneration() {
-      const source = (activeSourceMode === 'url' || activeSourceMode === 'youtube') 
-        ? document.getElementById('videoSourceInput').value.trim() 
-        : (document.getElementById('fileUploadInput').files[0]?.name || '');
-
-      if (!source) {
-        showToast('Please enter a video link or choose a video file.');
-        return;
-      }
-
-      localStorage.setItem('activeSource', source);
+      const isUrlMode = (activeSourceMode === 'url' || activeSourceMode === 'youtube');
+      let source = '';
 
       const submitBtn = document.getElementById('submitBtn');
       const submitBtnText = document.getElementById('submitBtnText');
+
+      if (isUrlMode) {
+        source = document.getElementById('videoSourceInput').value.trim();
+        if (!source) {
+          showToast('Please enter a video link.');
+          return;
+        }
+        localStorage.setItem('activeSource', source);
+      } else {
+        const fileInput = document.getElementById('fileUploadInput');
+        const file = currentSelectedFile || (fileInput ? fileInput.files[0] : null);
+        if (!file) {
+          showToast('Please choose a video file to upload.');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtnText.innerText = 'Uploading video...';
+
+        const cancelActionBtn = document.getElementById('cancelActionBtn');
+        if (cancelActionBtn) cancelActionBtn.style.display = 'inline-flex';
+
+        const processingCard = document.getElementById('processingCard');
+        processingCard.style.display = 'block';
+        applyProgressUpdate('ingestion', `Uploading '${file.name}' (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`, 5);
+
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          const uploadRes = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+          if (!uploadRes.ok) {
+            const errData = await uploadRes.json().catch(() => ({}));
+            throw new Error(errData.detail || `Upload failed (HTTP ${uploadRes.status})`);
+          }
+          const uploadData = await uploadRes.json();
+          source = uploadData.file_path;
+          localStorage.setItem('activeSource', source);
+        } catch (uploadErr) {
+          showToast(`Upload failed: ${uploadErr.message}`);
+          resetSubmitState();
+          return;
+        }
+      }
+
       submitBtn.disabled = true;
       submitBtnText.innerText = 'Processing...';
 
@@ -2554,7 +2625,7 @@
       // Show processing card
       const processingCard = document.getElementById('processingCard');
       processingCard.style.display = 'block';
-      applyProgressUpdate('validation', 'Initializing generation pipeline...', 5);
+      applyProgressUpdate('validation', 'Initializing generation pipeline...', 10);
 
       try {
         const response = await fetch('/api/generate', {

@@ -181,25 +181,6 @@ python main.py "path/to/video.mp4" --n 4 --ratio 9:16 --style smart_crop
 
 ---
 
-## API Reference
-
-The FastAPI backend provides endpoints for programmatic integration:
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/health` | Health check and active LLM provider |
-| `GET` | `/api/preview?url={url}` | Fast platform detection, title, thumbnail, and stream resolution |
-| `POST` | `/api/generate` | Queue a background shorts generation job |
-| `GET` | `/api/status/{task_id}` | Poll generation task progress and step |
-| `GET` | `/api/tasks/active` | Retrieve currently active or in-flight job |
-| `POST` | `/api/cancel/{task_id}` | Cancel an ongoing generation task immediately |
-| `GET` | `/api/clips` | List all generated clips with 4-metric virality breakdown |
-| `DELETE` | `/api/clips/{filename}` | Permanently delete a rendered clip and its metadata |
-| `GET` | `/api/errors` | Inspect recent pipeline error telemetry |
-| `GET` | `/api/logs` | Fetch recent application log lines |
-
----
-
 ## Project Structure
 
 ```

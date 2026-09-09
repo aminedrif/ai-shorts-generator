@@ -120,6 +120,9 @@ def extract_embedded_video_url(html: str, base_url: str) -> Optional[str]:
 
 def download_with_ffmpeg(stream_url: str, output_path: Path) -> Path:
     """Downloads or stream-copies a direct video/HLS URL directly via FFmpeg."""
+    if not stream_url.startswith(("http://", "https://", "rtmp://", "rtsp://", "ftp://")):
+        raise ValueError(f"Cannot stream-download non-URL: '{stream_url}'")
+
     ffmpeg_exe = get_ffmpeg_bin()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -153,7 +156,12 @@ def download_with_ffmpeg(stream_url: str, output_path: Path) -> Path:
     ]
     res_enc = subprocess.run(cmd_encode, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if res_enc.returncode != 0 or not output_path.exists() or output_path.stat().st_size == 0:
-        raise RuntimeError(f"FFmpeg direct download failed: {res_enc.stderr[:300]}")
+        err_lines = [
+            ln.strip() for ln in res_enc.stderr.splitlines()
+            if ln.strip() and not ln.strip().startswith(("ffmpeg version", "built with", "configuration:", "libav", "libsw", "libpost"))
+        ]
+        err_msg = " | ".join(err_lines[-3:]) if err_lines else res_enc.stderr[-200:].strip()
+        raise RuntimeError(f"FFmpeg direct download failed: {err_msg}")
 
     return output_path
 
@@ -516,6 +524,13 @@ class VideoDownloader:
         """
         source = source.strip()
         source_path = Path(source)
+
+        # 1. Check direct path or temp uploads directory
+        if not source_path.is_file():
+            upload_cand = self.temp_dir / "uploads" / source_path.name
+            if upload_cand.is_file():
+                source_path = upload_cand
+
         if source_path.exists() and source_path.is_file():
             title = source_path.stem
             audio_path = self.extract_audio(source_path)
@@ -527,6 +542,13 @@ class VideoDownloader:
                 "duration": duration,
                 "is_local": True,
             }
+
+        # If source is not a URL, do not pass to yt-dlp or FFmpeg!
+        if not source.startswith(("http://", "https://", "rtmp://", "rtsp://", "ftp://")):
+            raise FileNotFoundError(
+                f"Video file or URL not found on server: '{source}'. "
+                f"If you selected a local file, please upload it first."
+            )
 
         ffmpeg_exe = get_ffmpeg_bin()
         output_template = str(self.temp_dir / "%(title)s_%(id)s.%(ext)s")
@@ -624,10 +646,13 @@ class VideoDownloader:
                     title = "webpage_video"
             else:
                 # Direct FFmpeg stream copy fallback on original URL
-                logger.info(f"Trying direct FFmpeg stream download on {download_target_url}...")
-                fallback_out = self.temp_dir / f"direct_{int(time.time())}.mp4"
-                video_file = download_with_ffmpeg(download_target_url, fallback_out)
-                title = sanitize_filename(Path(urllib.parse.urlparse(download_target_url).path).stem or "direct_video")
+                if download_target_url.startswith(("http://", "https://", "rtmp://", "rtsp://", "ftp://")):
+                    logger.info(f"Trying direct FFmpeg stream download on {download_target_url}...")
+                    fallback_out = self.temp_dir / f"direct_{int(time.time())}.mp4"
+                    video_file = download_with_ffmpeg(download_target_url, fallback_out)
+                    title = sanitize_filename(Path(urllib.parse.urlparse(download_target_url).path).stem or "direct_video")
+                else:
+                    raise FileNotFoundError(f"Video file not found on server: '{download_target_url}'")
 
         if not video_file or not video_file.exists():
             raise FileNotFoundError(f"Could not download or extract video from: {source}")
