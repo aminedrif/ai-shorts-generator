@@ -23,8 +23,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import json
+
 executor = ThreadPoolExecutor(max_workers=2)
 tasks: Dict[str, Dict[str, Any]] = {}
+TASKS_CACHE_FILE = config.output_dir / "tasks_cache.json"
+
+
+def save_tasks_cache():
+    try:
+        cacheable = {}
+        for tid, t in list(tasks.items())[-20:]:
+            cacheable[tid] = {
+                "id": t.get("id"),
+                "source": t.get("source"),
+                "status": t.get("status"),
+                "progress": t.get("progress", 0),
+                "step": t.get("step"),
+                "message": t.get("message"),
+                "error": t.get("error"),
+            }
+        with open(TASKS_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cacheable, f, indent=2)
+    except Exception as e:
+        logger.debug(f"Could not save tasks cache: {e}")
+
+
+def load_tasks_cache():
+    if TASKS_CACHE_FILE.exists():
+        try:
+            with open(TASKS_CACHE_FILE, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    tasks.update(loaded)
+        except Exception as e:
+            logger.debug(f"Could not load tasks cache: {e}")
+
+
+load_tasks_cache()
 
 # Serve output directory for media downloads
 app.mount("/outputs", StaticFiles(directory=str(config.output_dir)), name="outputs")
@@ -42,9 +78,24 @@ class GenerateJobRequest(BaseModel):
     provider: Optional[str] = Field(default=None)
 
 
+from src.pipeline import ShortsPipeline, CANCELLED_TASKS
+
+
 def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
     tasks[task_id]["status"] = "processing"
+    tasks[task_id]["progress"] = 5
+    tasks[task_id]["step"] = "validation"
+    tasks[task_id]["message"] = "Initializing generation worker..."
+    save_tasks_cache()
     logger.info(f"Starting job {task_id} for source '{req.source}'")
+
+    def on_progress(pct: int, step: str, msg: str):
+        if task_id in tasks:
+            tasks[task_id]["progress"] = pct
+            tasks[task_id]["step"] = step
+            tasks[task_id]["message"] = msg
+            save_tasks_cache()
+
     try:
         pipeline = ShortsPipeline(llm_provider=req.provider)
         result = pipeline.run(
@@ -57,16 +108,28 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
             subtitle_style=req.subtitle_style,
             resolution=req.resolution,
             task_id=task_id,
+            progress_callback=on_progress,
         )
         tasks[task_id]["status"] = "completed"
+        tasks[task_id]["progress"] = 100
+        tasks[task_id]["step"] = "complete"
+        tasks[task_id]["message"] = "All clips rendered successfully!"
         tasks[task_id]["result"] = result
+        save_tasks_cache()
         logger.info(f"Job {task_id} completed successfully.")
     except Exception as e:
-        err_rec = track_error(e, module="server_worker", task_id=task_id, context={"source": req.source})
-        tasks[task_id]["status"] = "failed"
-        tasks[task_id]["error"] = str(e)
-        tasks[task_id]["error_id"] = err_rec["id"]
-        tasks[task_id]["traceback"] = err_rec["traceback"]
+        if "cancelled" in str(e).lower():
+            tasks[task_id]["status"] = "cancelled"
+            tasks[task_id]["message"] = "Task cancelled by user."
+            save_tasks_cache()
+            logger.info(f"Job {task_id} marked as cancelled.")
+        else:
+            err_rec = track_error(e, module="server_worker", task_id=task_id, context={"source": req.source})
+            tasks[task_id]["status"] = "failed"
+            tasks[task_id]["error"] = str(e)
+            tasks[task_id]["error_id"] = err_rec["id"]
+            tasks[task_id]["traceback"] = err_rec["traceback"]
+            save_tasks_cache()
 
 
 @app.get("/api/health")
@@ -84,9 +147,13 @@ def create_generation_job(req: GenerateJobRequest, bg_tasks: BackgroundTasks):
         "id": task_id,
         "source": req.source,
         "status": "queued",
+        "progress": 0,
+        "step": "queued",
+        "message": "Waiting in queue...",
         "result": None,
         "error": None,
     }
+    save_tasks_cache()
 
     bg_tasks.add_task(run_pipeline_worker, task_id, req)
     return {"task_id": task_id, "status": "queued"}
@@ -97,6 +164,29 @@ def get_task_status(task_id: str):
     if task_id not in tasks:
         raise HTTPException(status_code=404, detail="Task not found")
     return tasks[task_id]
+
+
+@app.get("/api/tasks/active")
+def get_active_task():
+    """Returns the currently active or most recent processing/queued task."""
+    for task_id, task in reversed(list(tasks.items())):
+        if task.get("status") in ("queued", "processing"):
+            return {"task": task}
+    return {"task": None}
+
+
+@app.post("/api/cancel/{task_id}")
+@app.post("/api/tasks/{task_id}/cancel")
+def cancel_task(task_id: str):
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    CANCELLED_TASKS.add(task_id)
+    tasks[task_id]["status"] = "cancelled"
+    tasks[task_id]["message"] = "Task cancelled by user."
+    save_tasks_cache()
+    logger.info(f"Task {task_id} cancellation registered.")
+    return {"status": "cancelled", "task_id": task_id}
+
 
 
 @app.get("/api/clips")

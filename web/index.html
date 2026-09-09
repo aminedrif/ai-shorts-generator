@@ -545,9 +545,14 @@
       box-shadow: 0 0 0 2px #09090b;
     }
 
-    /* Process Button */
+    /* Process & Cancel Buttons */
+    .action-button-row {
+      display: flex;
+      gap: 10px;
+    }
+
     .submit-btn {
-      width: 100%;
+      flex: 1;
       height: 50px;
       background: #ffffff;
       color: #09090b;
@@ -568,11 +573,39 @@
     }
 
     .submit-btn:disabled {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
     }
 
-    /* Real-Time Processing Stepper */
+    .cancel-action-btn {
+      height: 50px;
+      padding: 0 22px;
+      border-radius: var(--radius);
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .cancel-action-btn:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+      color: #ffffff;
+    }
+
+    .cancel-action-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Real-Time Processing Stepper with CANCEL BUTTON */
     .processing-card {
       display: none;
       background: var(--card);
@@ -580,6 +613,12 @@
       border-radius: var(--radius);
       padding: 20px;
       margin-top: 20px;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .progress-header {
@@ -587,7 +626,34 @@
       align-items: center;
       justify-content: space-between;
       font-size: 14px;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+    }
+
+    .progress-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cancel-task-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .cancel-task-btn:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #ef4444;
+      color: #ffffff;
     }
 
     .progress-bar-bg {
@@ -628,11 +694,13 @@
       font-weight: 600;
       color: var(--text-subtle);
       border: 1px solid transparent;
+      transition: all 0.25s ease;
     }
 
     .step-badge.active {
       color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.25);
+      background: #222228;
     }
 
     .step-badge.done {
@@ -861,7 +929,7 @@
       z-index: 30;
     }
 
-    /* GENERATED CLIPS GALLERY (Task / Clips View) */
+    /* GENERATED CLIPS GALLERY */
     .clips-section {
       margin-top: 24px;
       padding-top: 36px;
@@ -1195,7 +1263,7 @@
       margin-bottom: 12px;
     }
 
-    /* Delete Confirmation Modal (AlertDialog) */
+    /* Delete Confirmation Modal */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -1516,16 +1584,35 @@
           </div>
         </div>
 
-        <!-- Submit Button -->
-        <button type="button" class="submit-btn" id="submitBtn" onclick="startGeneration()">
-          <span id="submitBtnText">Process Video</span>
-        </button>
+        <!-- Action Button Row: Process Video & Cancel Button -->
+        <div class="action-button-row">
+          <button type="button" class="submit-btn" id="submitBtn" onclick="startGeneration()">
+            <span id="submitBtnText">Process Video</span>
+          </button>
+          <button type="button" class="cancel-action-btn" id="cancelActionBtn" onclick="cancelActiveTask()" style="display: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Cancel Generation
+          </button>
+        </div>
 
-        <!-- Real-Time Processing Stepper -->
+        <!-- Real-Time Processing Stepper with CANCEL BUTTON -->
         <div class="processing-card" id="processingCard">
           <div class="progress-header">
-            <span style="font-weight:600; color:#ffffff;" id="progressStatusTitle">Analyzing video...</span>
-            <span style="font-weight:700; color:#34d399;" id="progressPercent">0%</span>
+            <div class="progress-title-wrap">
+              <span style="font-weight:600; color:#ffffff;" id="progressStatusTitle">Initializing generation...</span>
+              <span style="font-weight:700; color:#34d399; font-variant-numeric:tabular-nums;" id="progressPercent">0%</span>
+            </div>
+            <!-- CANCEL GENERATION BUTTON -->
+            <button type="button" class="cancel-task-btn" id="cancelTaskBtn" onclick="cancelActiveTask()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+              Cancel
+            </button>
           </div>
           <div class="progress-bar-bg">
             <div class="progress-bar-fill" id="progressBarFill"></div>
@@ -1710,7 +1797,96 @@
       fetchClips();
       setupUrlListener();
       updateMockupPreview();
+      restoreActiveTask();
     });
+
+    // Check and restore active task on page load / refresh
+    async function restoreActiveTask() {
+      // Restore previously entered source if present
+      const savedSource = localStorage.getItem('activeSource');
+      if (savedSource) {
+        const input = document.getElementById('videoSourceInput');
+        if (input && !input.value) {
+          input.value = savedSource;
+          document.getElementById('clearBtn').style.display = 'block';
+          const videoId = extractYouTubeId(savedSource);
+          if (videoId) {
+            document.getElementById('phoneCanvas').style.backgroundImage = `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`;
+          }
+        }
+      }
+
+      const savedTaskId = localStorage.getItem('activeTaskId');
+
+      try {
+        const res = await fetch('/api/tasks/active');
+        if (!res.ok) return;
+        const data = await res.json();
+        const activeTask = data.task;
+
+        if (activeTask && (activeTask.status === 'processing' || activeTask.status === 'queued')) {
+          activeTaskId = activeTask.id;
+          localStorage.setItem('activeTaskId', activeTaskId);
+          attachToTask(activeTask);
+        } else if (savedTaskId) {
+          // Check saved task id status
+          const taskRes = await fetch(`/api/status/${savedTaskId}`);
+          if (taskRes.ok) {
+            const taskData = await taskRes.json();
+            if (taskData.status === 'processing' || taskData.status === 'queued') {
+              activeTaskId = taskData.id;
+              attachToTask(taskData);
+            } else {
+              localStorage.removeItem('activeTaskId');
+              resetSubmitState();
+              if (taskData.status === 'completed') {
+                fetchClips();
+              }
+            }
+          } else {
+            localStorage.removeItem('activeTaskId');
+            resetSubmitState();
+          }
+        } else {
+          resetSubmitState();
+        }
+      } catch (err) {
+        console.error('Error checking active task:', err);
+      }
+    }
+
+    function attachToTask(taskData) {
+      if (taskData.source) {
+        const input = document.getElementById('videoSourceInput');
+        if (input) {
+          input.value = taskData.source;
+          document.getElementById('clearBtn').style.display = 'block';
+          const videoId = extractYouTubeId(taskData.source);
+          if (videoId) {
+            document.getElementById('phoneCanvas').style.backgroundImage = `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`;
+          }
+        }
+        localStorage.setItem('activeSource', taskData.source);
+      }
+
+      const submitBtn = document.getElementById('submitBtn');
+      const submitBtnText = document.getElementById('submitBtnText');
+      submitBtn.disabled = true;
+      submitBtnText.innerText = 'Processing...';
+
+      const cancelActionBtn = document.getElementById('cancelActionBtn');
+      if (cancelActionBtn) cancelActionBtn.style.display = 'inline-flex';
+
+      const processingCard = document.getElementById('processingCard');
+      processingCard.style.display = 'block';
+
+      const progress = taskData.progress || 10;
+      const step = taskData.step || 'validation';
+      const message = taskData.message || 'Processing video...';
+
+      applyProgressUpdate(step, message, progress);
+      pollTaskStatus(taskData.id);
+    }
 
     // Toggle Source Mode
     function setSourceMode(mode) {
@@ -1826,10 +2002,15 @@
         return;
       }
 
+      localStorage.setItem('activeSource', source);
+
       const submitBtn = document.getElementById('submitBtn');
       const submitBtnText = document.getElementById('submitBtnText');
       submitBtn.disabled = true;
       submitBtnText.innerText = 'Processing...';
+
+      const cancelActionBtn = document.getElementById('cancelActionBtn');
+      if (cancelActionBtn) cancelActionBtn.style.display = 'inline-flex';
 
       const nClips = parseInt(document.getElementById('clipsCountRange').value) || 3;
       const subtitleStyle = document.getElementById('captionStyleSelect').value;
@@ -1838,7 +2019,7 @@
       // Show processing card
       const processingCard = document.getElementById('processingCard');
       processingCard.style.display = 'block';
-      updateProgressStep(1, 'Starting ingestion pipeline...', 10);
+      applyProgressUpdate('validation', 'Initializing generation pipeline...', 5);
 
       try {
         const response = await fetch('/api/generate', {
@@ -1859,10 +2040,69 @@
 
         const data = await response.json();
         activeTaskId = data.task_id;
+        localStorage.setItem('activeTaskId', activeTaskId);
         pollTaskStatus(activeTaskId);
       } catch (err) {
         showToast(`Failed to start job: ${err.message}`);
         resetSubmitState();
+      }
+    }
+
+    // Cancel Active Task
+    async function cancelActiveTask() {
+      if (!activeTaskId) {
+        resetSubmitState();
+        document.getElementById('processingCard').style.display = 'none';
+        return;
+      }
+
+      const taskId = activeTaskId;
+      const cancelBtn = document.getElementById('cancelTaskBtn');
+      const cancelActionBtn = document.getElementById('cancelActionBtn');
+      if (cancelBtn) {
+        cancelBtn.disabled = true;
+        cancelBtn.innerText = 'Cancelling...';
+      }
+      if (cancelActionBtn) {
+        cancelActionBtn.disabled = true;
+        cancelActionBtn.innerText = 'Cancelling...';
+      }
+
+      try {
+        const res = await fetch(`/api/cancel/${taskId}`, { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        if (pollInterval) clearInterval(pollInterval);
+        localStorage.removeItem('activeTaskId');
+        activeTaskId = null;
+
+        showToast('Generation cancelled successfully.');
+        resetSubmitState();
+        document.getElementById('processingCard').style.display = 'none';
+      } catch (err) {
+        showToast(`Error cancelling task: ${err.message}`);
+      } finally {
+        if (cancelBtn) {
+          cancelBtn.disabled = false;
+          cancelBtn.innerHTML = `
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Cancel
+          `;
+        }
+        if (cancelActionBtn) {
+          cancelActionBtn.disabled = false;
+          cancelActionBtn.style.display = 'none';
+          cancelActionBtn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Cancel Generation
+          `;
+        }
       }
     }
 
@@ -1875,35 +2115,83 @@
           if (!res.ok) return;
           const statusData = await res.json();
 
-          if (statusData.status === 'processing') {
-            updateProgressStep(3, 'Analyzing highlights & audio retention curve...', 45);
+          if (statusData.status === 'processing' || statusData.status === 'queued') {
+            const pct = statusData.progress || 10;
+            const step = statusData.step || 'validation';
+            const msg = statusData.message || 'Processing video...';
+            applyProgressUpdate(step, msg, pct);
           } else if (statusData.status === 'completed') {
             clearInterval(pollInterval);
-            updateProgressStep(6, 'All clips rendered successfully!', 100);
+            localStorage.removeItem('activeTaskId');
+            activeTaskId = null;
+            applyProgressUpdate('complete', 'All clips rendered successfully!', 100);
             showToast('Video processing complete! New clips are ready.');
             resetSubmitState();
             fetchClips();
+          } else if (statusData.status === 'cancelled') {
+            clearInterval(pollInterval);
+            localStorage.removeItem('activeTaskId');
+            activeTaskId = null;
+            showToast('Generation was cancelled.');
+            resetSubmitState();
+            document.getElementById('processingCard').style.display = 'none';
           } else if (statusData.status === 'failed') {
             clearInterval(pollInterval);
+            localStorage.removeItem('activeTaskId');
+            activeTaskId = null;
             showToast(`Generation failed: ${statusData.error || 'Unknown error'}`);
             resetSubmitState();
           }
         } catch (e) {
           console.error('Status poll error', e);
         }
-      }, 2500);
+      }, 1500);
     }
 
-    function updateProgressStep(stepNum, message, percent) {
+    let currentDisplayPercent = 0;
+    let animInterval = null;
+
+    function applyProgressUpdate(stepName, message, percent) {
       document.getElementById('progressStatusTitle').innerText = message;
-      document.getElementById('progressPercent').innerText = percent + '%';
-      document.getElementById('progressBarFill').style.width = percent + '%';
+
+      const target = Math.max(0, Math.min(100, percent));
+      if (animInterval) clearInterval(animInterval);
+
+      if (currentDisplayPercent > target) {
+        currentDisplayPercent = target;
+      }
+
+      animInterval = setInterval(() => {
+        if (currentDisplayPercent < target) {
+          currentDisplayPercent++;
+          document.getElementById('progressPercent').innerText = currentDisplayPercent + '%';
+          document.getElementById('progressBarFill').style.width = currentDisplayPercent + '%';
+        } else {
+          document.getElementById('progressPercent').innerText = target + '%';
+          document.getElementById('progressBarFill').style.width = target + '%';
+          clearInterval(animInterval);
+        }
+      }, 15);
+
+      const stepMapping = {
+        'queued': 1,
+        'validation': 1,
+        'ingestion': 2,
+        'download': 2,
+        'transcript': 3,
+        'analysis': 4,
+        'rendering': 5,
+        'complete': 6,
+      };
+
+      const currentStepNum = stepMapping[stepName] || 1;
 
       for (let i = 1; i <= 6; i++) {
         const badge = document.getElementById(`stepBadge${i}`);
-        if (i < stepNum) {
+        if (!badge) continue;
+        if (i < currentStepNum) {
           badge.className = 'step-badge done';
-        } else if (i === stepNum) {
+        } else if (i === currentStepNum) {
           badge.className = 'step-badge active';
         } else {
           badge.className = 'step-badge';
@@ -1914,8 +2202,13 @@
     function resetSubmitState() {
       const submitBtn = document.getElementById('submitBtn');
       const submitBtnText = document.getElementById('submitBtnText');
-      submitBtn.disabled = false;
-      submitBtnText.innerText = 'Process Video';
+      if (submitBtn) submitBtn.disabled = false;
+      if (submitBtnText) submitBtnText.innerText = 'Process Video';
+      const cancelActionBtn = document.getElementById('cancelActionBtn');
+      if (cancelActionBtn) {
+        cancelActionBtn.style.display = 'none';
+        cancelActionBtn.disabled = false;
+      }
     }
 
     // Fetch and render clips
