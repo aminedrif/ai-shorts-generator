@@ -51,6 +51,61 @@ def get_media_duration(video_path: Path) -> float:
     return 0.0
 
 
+def find_local_video(source_str: str, temp_dir: Optional[Path] = None) -> Optional[Path]:
+    """
+    Resolves a local video file from a raw path or bare filename by checking:
+    1. Direct filesystem path (absolute or relative to cwd)
+    2. temp/uploads directory
+    3. Standard user media directories (Videos, Downloads, Desktop) including 1-level subdirectories
+    4. Project inputs and outputs folders
+    """
+    clean_str = source_str.strip().strip('"').strip("'")
+    if not clean_str:
+        return None
+
+    # Check direct path
+    direct_p = Path(clean_str)
+    if direct_p.is_file():
+        return direct_p.resolve()
+
+    fname = direct_p.name
+    if not fname:
+        return None
+
+    search_dirs = []
+    if temp_dir:
+        search_dirs.append(temp_dir / "uploads")
+
+    home = Path.home()
+    search_dirs.extend([
+        home / "Videos",
+        home / "Downloads",
+        home / "Desktop",
+        Path.cwd() / "inputs",
+        Path.cwd() / "outputs",
+        Path.cwd(),
+    ])
+
+    for base in search_dirs:
+        if not base.exists():
+            continue
+        # Direct check
+        cand = base / fname
+        if cand.is_file():
+            return cand.resolve()
+        # 1-level subdirectories (e.g. Videos/Valorant/filename.mp4)
+        try:
+            for sub in base.iterdir():
+                if sub.is_dir():
+                    sub_cand = sub / fname
+                    if sub_cand.is_file():
+                        return sub_cand.resolve()
+        except (PermissionError, OSError):
+            continue
+
+    return None
+
+
 def fetch_webpage_html(url: str) -> Tuple[Optional[str], Optional[str]]:
     """Fetches HTML content from an arbitrary webpage using browser headers.
     Returns (html, final_url) or (None, None)."""
@@ -523,31 +578,27 @@ class VideoDownloader:
         Returns metadata containing video path, audio path, title, and duration.
         """
         source = source.strip()
-        source_path = Path(source)
 
-        # 1. Check direct path or temp uploads directory
-        if not source_path.is_file():
-            upload_cand = self.temp_dir / "uploads" / source_path.name
-            if upload_cand.is_file():
-                source_path = upload_cand
-
-        if source_path.exists() and source_path.is_file():
-            title = source_path.stem
-            audio_path = self.extract_audio(source_path)
-            duration = get_media_duration(source_path)
+        # 1. Check direct path, temp uploads, or standard user media folders (Videos, Downloads, Desktop)
+        local_match = find_local_video(source, temp_dir=self.temp_dir)
+        if local_match:
+            logger.info(f"Resolved local video source: {local_match}")
+            title = local_match.stem
+            audio_path = self.extract_audio(local_match)
+            duration = get_media_duration(local_match)
             return {
                 "title": title,
-                "video_path": source_path,
+                "video_path": local_match,
                 "audio_path": audio_path,
                 "duration": duration,
                 "is_local": True,
             }
 
-        # If source is not a URL, do not pass to yt-dlp or FFmpeg!
+        # If source is not a URL and cannot be found locally, raise a clear error
         if not source.startswith(("http://", "https://", "rtmp://", "rtsp://", "ftp://")):
             raise FileNotFoundError(
-                f"Video file or URL not found on server: '{source}'. "
-                f"If you selected a local file, please upload it first."
+                f"Video file or URL not found: '{source}'. "
+                f"If you selected a local file, please ensure it exists or upload it via the dashboard."
             )
 
         ffmpeg_exe = get_ffmpeg_bin()

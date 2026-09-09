@@ -8,6 +8,36 @@ from src.config import config, get_ffmpeg_bin, is_nvenc_available
 from src.downloader import sanitize_filename
 from src.logger import logger, track_error
 
+try:
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+    HAS_ARABIC_RESHAPER = True
+except ImportError:
+    HAS_ARABIC_RESHAPER = False
+
+
+def format_arabic_for_subtitles(text: str) -> str:
+    """
+    Applies Arabic reshaping and BiDi visual ordering so FFmpeg libass renders
+    cursive connected letters Right-To-Left correctly.
+    """
+    if not text or not HAS_ARABIC_RESHAPER:
+        return text
+    if any(
+        '\u0600' <= ch <= '\u06FF' or
+        '\u0750' <= ch <= '\u077F' or
+        '\u08A0' <= ch <= '\u08FF' or
+        '\uFB50' <= ch <= '\uFDFF' or
+        '\uFE70' <= ch <= '\uFEFF'
+        for ch in text
+    ):
+        try:
+            reshaped = arabic_reshaper.reshape(text)
+            return get_display(reshaped)
+        except Exception:
+            return text
+    return text
+
 
 def format_srt_time(seconds: float) -> str:
     """Converts seconds into SRT timestamp format: HH:MM:SS,mmm"""
@@ -145,6 +175,7 @@ class VideoEditor:
             if not text:
                 continue
 
+            text = format_arabic_for_subtitles(text)
             srt_lines.append(str(counter))
             srt_lines.append(f"{format_srt_time(rel_start)} --> {format_srt_time(rel_end)}")
             srt_lines.append(text)
@@ -180,8 +211,8 @@ class VideoEditor:
             "",
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-            "Style: KaraokeSub,Arial,64,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,2,2,40,40,280,1",
-            "Style: HookTitle,Arial,48,&H00FFFFFF,&H00000000,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,3,12,0,8,60,60,180,1",
+            "Style: KaraokeSub,Segoe UI,64,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,2,2,40,40,280,1",
+            "Style: HookTitle,Segoe UI,48,&H00FFFFFF,&H00000000,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,3,12,0,8,60,60,180,1",
             "",
             "[Events]",
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -192,7 +223,9 @@ class VideoEditor:
         # 1. Hook title banner in top safe area for first ~3.5 seconds
         if hook_title:
             banner_end = min(3.5, max(1.5, duration))
-            clean_hook = hook_title.replace("\n", " ").strip().upper()
+            raw_hook = hook_title.replace("\n", " ").strip()
+            clean_hook = raw_hook if any('\u0600' <= ch <= '\u06FF' for ch in raw_hook) else raw_hook.upper()
+            clean_hook = format_arabic_for_subtitles(clean_hook)
             if clean_hook:
                 events.append(
                     f"Dialogue: 1,0:00:00.20,{format_ass_time(banner_end)},HookTitle,,0,0,0,,{{\\fad(200,400)}}{clean_hook}"
@@ -208,8 +241,11 @@ class VideoEditor:
                     rel_s = max(0.0, w_start - start_time)
                     rel_e = min(duration, w_end - start_time)
                     if rel_e > rel_s:
+                        raw_w = w["word"].strip()
+                        disp_w = raw_w if any('\u0600' <= ch <= '\u06FF' for ch in raw_w) else raw_w.upper()
+                        disp_w = format_arabic_for_subtitles(disp_w)
                         valid_words.append({
-                            "word": w["word"].strip().upper(),
+                            "word": disp_w,
                             "start": rel_s,
                             "end": rel_e,
                         })

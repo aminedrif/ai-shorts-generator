@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <title>AI Shorts Generator - Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1673,6 +1676,28 @@
             </select>
           </div>
 
+          <!-- Language & Dialect Selector -->
+          <div class="control-row">
+            <label class="control-label">Spoken Language</label>
+            <select id="languageSelect" class="select-input">
+              <option value="auto">Auto-Detect (Universal)</option>
+              <option value="ar" selected>Arabic / Algerian Darija (العربية / الدارجة)</option>
+              <option value="fr">French (Français)</option>
+              <option value="en">English</option>
+              <option value="es">Spanish (Español)</option>
+            </select>
+          </div>
+
+          <!-- Speech Recognition Model -->
+          <div class="control-row">
+            <label class="control-label">Whisper AI Model</label>
+            <select id="whisperModelSelect" class="select-input">
+              <option value="base">Base (Fastest)</option>
+              <option value="small" selected>Small (Recommended for Darija & Slang)</option>
+              <option value="medium">Medium (High Precision)</option>
+            </select>
+          </div>
+
           <!-- Framing Selector -->
           <div class="control-row">
             <label class="control-label">Framing</label>
@@ -2566,21 +2591,26 @@
       const submitBtn = document.getElementById('submitBtn');
       const submitBtnText = document.getElementById('submitBtnText');
 
+      const fileInput = document.getElementById('fileUploadInput');
+      const selectedFile = currentSelectedFile || (fileInput ? fileInput.files[0] : null);
+
       if (isUrlMode) {
         source = document.getElementById('videoSourceInput').value.trim();
         if (!source) {
-          showToast('Please enter a video link.');
-          return;
+          if (selectedFile) {
+            setSourceMode('upload');
+          } else {
+            showToast('Please enter a video link or choose a video file.');
+            return;
+          }
         }
-        localStorage.setItem('activeSource', source);
-      } else {
-        const fileInput = document.getElementById('fileUploadInput');
-        const file = currentSelectedFile || (fileInput ? fileInput.files[0] : null);
-        if (!file) {
-          showToast('Please choose a video file to upload.');
-          return;
-        }
+      }
 
+      // Check if we should upload binary file
+      const isRemoteUrl = source.startsWith('http://') || source.startsWith('https://') || source.startsWith('rtmp://') || source.startsWith('rtsp://');
+      const shouldUpload = (activeSourceMode === 'upload' || (!isRemoteUrl && selectedFile));
+
+      if (shouldUpload && selectedFile) {
         submitBtn.disabled = true;
         submitBtnText.innerText = 'Uploading video...';
 
@@ -2589,11 +2619,11 @@
 
         const processingCard = document.getElementById('processingCard');
         processingCard.style.display = 'block';
-        applyProgressUpdate('ingestion', `Uploading '${file.name}' (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`, 5);
+        applyProgressUpdate('ingestion', `Uploading '${selectedFile.name}' (${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB)...`, 5);
 
         try {
           const formData = new FormData();
-          formData.append('file', file);
+          formData.append('file', selectedFile);
           const uploadRes = await fetch('/api/upload', {
             method: 'POST',
             body: formData,
@@ -2610,6 +2640,11 @@
           resetSubmitState();
           return;
         }
+      } else if (!source && !selectedFile) {
+        showToast('Please enter a video link or choose a video file.');
+        return;
+      } else {
+        localStorage.setItem('activeSource', source);
       }
 
       submitBtn.disabled = true;
@@ -2621,6 +2656,8 @@
       const nClips = parseInt(document.getElementById('clipsCountRange').value) || 3;
       const subtitleStyle = document.getElementById('captionStyleSelect').value;
       const burnSubtitles = document.getElementById('subtitlesToggle').checked;
+      const language = document.getElementById('languageSelect')?.value || 'auto';
+      const whisperModel = document.getElementById('whisperModelSelect')?.value || 'small';
 
       // Show processing card
       const processingCard = document.getElementById('processingCard');
@@ -2637,6 +2674,8 @@
             ratio: '9:16',
             burn_subtitles: burnSubtitles,
             subtitle_style: subtitleStyle,
+            language: language,
+            whisper_model: whisperModel,
           }),
         });
 

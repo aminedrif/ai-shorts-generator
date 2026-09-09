@@ -57,6 +57,12 @@ def parse_args():
         default=config.whisper_model,
         help="Whisper model size (tiny, base, small, medium, large-v3).",
     )
+    parser.add_argument(
+        "--language",
+        type=str,
+        default="auto",
+        help="Audio language (e.g., 'ar' for Arabic / Algerian Darija, 'en', 'fr', or 'auto').",
+    )
     return parser.parse_args()
 
 
@@ -76,6 +82,8 @@ def main():
             burn_subtitles=not args.no_subtitles,
             style=args.style,
             resolution=args.resolution,
+            language=args.language,
+            whisper_model=args.whisper_model,
         )
 
         print("\nSummary:")

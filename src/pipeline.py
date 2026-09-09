@@ -37,6 +37,8 @@ class ShortsPipeline:
         burn_hook_title: bool = False,
         subtitle_style: str = "karaoke",
         progress_callback: Optional[Callable[[int, str, str], None]] = None,
+        language: Optional[str] = None,
+        whisper_model: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Runs the pipeline from ingestion to rendered clips."""
         start_time = time.time()
@@ -81,9 +83,11 @@ class ShortsPipeline:
                 media_title = media["title"]
                 media_duration = media.get("duration", 0)
 
-                logger.info(f"[2/4] Transcribing audio with Whisper...")
-                report(40, "transcript", "Transcribing audio speech cues with Whisper...")
-                transcript = self.transcriber.transcribe(media["audio_path"])
+                if whisper_model:
+                    self.transcriber.set_model(whisper_model)
+                logger.info(f"[2/4] Transcribing audio with Whisper (model: {self.transcriber.model_size}, lang: {language or 'auto'})...")
+                report(40, "transcript", f"Transcribing audio with Whisper ({self.transcriber.model_size}, {language or 'auto-detect'})...")
+                transcript = self.transcriber.transcribe(media["audio_path"], language=language)
 
             if not transcript or not transcript.get("segments"):
                 raise RuntimeError("No speech or subtitles detected for this video.")

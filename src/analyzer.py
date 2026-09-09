@@ -23,6 +23,13 @@ Evaluation criteria:
 3. Emotional or intellectual impact: Delivers an unexpected insight, humorous quote, or strong takeaway.
 4. Optimal duration: Each highlight should be between 15 and 60 seconds long (or shorter if the total video is under 30 seconds).
 
+Multilingual & Arabic / Algerian Darija (الدارجة الجزائرية والمغاربية) Guidance:
+- The video transcript may be in Arabic (العربية), North African / Algerian Darija (الدارجة الجزائرية), Arabizi, French, or gaming code-switching.
+- You understand Algerian Darija vocabulary, gamer slang, clutch plays, banter, and emotional reactions.
+- When analyzing Arabic or Darija transcripts:
+  - Keep the generated `title` and `hook` in natural Arabic or Darija that matches the spoken language (e.g., "أقوى كلاوتش في فالورانت", "لقطة مجنونة تموت بالضحك", "زعما يجيبها؟").
+  - Do NOT force-translate colloquial Arabic or Darija slang into awkward English. Preserve the authentic energy and humor of the speakers.
+
 Return ONLY a valid JSON array of objects with the following schema:
 [
   {

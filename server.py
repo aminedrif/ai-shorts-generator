@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from src.config import config
 from src.pipeline import ShortsPipeline
-from src.downloader import VideoDownloader, sanitize_filename
+from src.downloader import VideoDownloader, sanitize_filename, find_local_video
 from src.logger import logger, error_tracker, track_error
 
 app = FastAPI(title="AI Shorts Generator API", version="1.0.0")
@@ -78,6 +78,8 @@ class GenerateJobRequest(BaseModel):
     subtitle_style: str = Field(default="karaoke")
     resolution: int = Field(default=1080)
     provider: Optional[str] = Field(default=None)
+    language: Optional[str] = Field(default="auto")
+    whisper_model: Optional[str] = Field(default=None)
 
 
 from src.pipeline import ShortsPipeline, CANCELLED_TASKS
@@ -89,7 +91,7 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
     tasks[task_id]["step"] = "validation"
     tasks[task_id]["message"] = "Initializing generation worker..."
     save_tasks_cache()
-    logger.info(f"Starting job {task_id} for source '{req.source}'")
+    logger.info(f"Starting job {task_id} for source '{req.source}' (lang: {req.language}, model: {req.whisper_model or 'default'})")
 
     def on_progress(pct: int, step: str, msg: str):
         if task_id in tasks:
@@ -99,7 +101,7 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
             save_tasks_cache()
 
     try:
-        pipeline = ShortsPipeline(llm_provider=req.provider)
+        pipeline = ShortsPipeline(llm_provider=req.provider, whisper_model=req.whisper_model)
         result = pipeline.run(
             source=req.source,
             n_clips=req.n_clips,
@@ -111,6 +113,8 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
             resolution=req.resolution,
             task_id=task_id,
             progress_callback=on_progress,
+            language=req.language,
+            whisper_model=req.whisper_model,
         )
         tasks[task_id]["status"] = "completed"
         tasks[task_id]["progress"] = 100
@@ -176,6 +180,11 @@ def create_generation_job(req: GenerateJobRequest, bg_tasks: BackgroundTasks):
     if not req.source.strip():
         raise HTTPException(status_code=400, detail="Video source URL or file path is required.")
 
+    # Automatically resolve local files (e.g. from standard Videos/Downloads/uploads folders)
+    resolved_local = find_local_video(req.source, temp_dir=config.temp_dir)
+    if resolved_local:
+        req.source = str(resolved_local)
+
     task_id = str(uuid.uuid4())
     tasks[task_id] = {
         "id": task_id,
@@ -232,6 +241,19 @@ def preview_video_source(url: str):
     clean_url = url.strip()
     if not clean_url:
         raise HTTPException(status_code=400, detail="URL is required")
+
+    # Check local video file first
+    local_cand = find_local_video(clean_url, temp_dir=config.temp_dir)
+    if local_cand:
+        return {
+            "status": "ok",
+            "platform": "local",
+            "platform_label": "Local Video",
+            "title": local_cand.stem,
+            "direct_video_url": None,
+            "thumbnail": None,
+        }
+
     try:
         downloader = VideoDownloader()
         info = downloader.extract_preview_info(clean_url)
@@ -358,6 +380,22 @@ def get_logs(lines: int = 100):
 
 # Serve frontend static files if present
 WEB_DIR = config.base_dir / "web"
+
+@app.get("/")
+def get_index_page():
+    index_path = WEB_DIR / "index.html"
+    if not index_path.exists():
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(
+        str(index_path),
+        media_type="text/html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
+
 if WEB_DIR.exists():
     app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="web")
 
