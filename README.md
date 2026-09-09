@@ -9,10 +9,12 @@ An open-source pipeline to extract high-engagement short vertical videos from lo
 ## Features
 
 - YouTube and Local Media Ingestion: Download YouTube links directly via yt-dlp or supply local MP4 files.
-- Timestamped Speech Recognition: Local faster-whisper model runs speech-to-text with word-level timestamps.
+- Timestamped Speech Recognition: Local faster-whisper model runs speech-to-text with word-level timestamps (GPU CUDA & CPU fallback).
 - AI Highlight Selection: LLM analyzes transcripts to detect punchy opening hooks, high-energy discussions, and self-contained insights.
-- 9:16 Vertical Video Re-framing: Formats 16:9 landscape content into vertical shorts using blurred background padding or smart center cropping.
-- Subtitle Burning: Generates and embeds synchronized, readable subtitles directly into the output video.
+- Face-Aware Smart Auto-Framing: Employs OpenCV facial tracking to center the active speaker automatically in 9:16 vertical mode, with blurred background and center crop options.
+- Dynamic Karaoke Subtitles: Generates and burns animated word-by-word highlighted captions (ASS format) with high-contrast outlines and customizable styles.
+- Hook Title Overlay Banner: Automatically burns a bold, high-retention hook title in the top safe zone during the first 3.5 seconds.
+- Hardware Acceleration: Fully supports NVIDIA CUDA for Whisper and NVENC (`h264_nvenc`) for ultra-fast GPU rendering.
 - Dual Interface: Use the CLI for automation and scripts, or run the web UI for interactive job queueing and video playback.
 
 ## Architecture
