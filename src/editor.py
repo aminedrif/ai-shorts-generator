@@ -1,5 +1,6 @@
 import os
 import uuid
+import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -366,6 +367,8 @@ class VideoEditor:
         else:
             encoder_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p"]
 
+        temp_render_path = self.temp_dir / f"rendering_{uuid.uuid4().hex[:8]}_{output_filename}"
+
         seek_args = [] if is_precut else ["-ss", f"{start_time:.2f}"]
 
         cmd = [
@@ -380,10 +383,18 @@ class VideoEditor:
             *encoder_args,
             "-c:a", "aac",
             "-b:a", "192k",
-            str(output_path),
+            "-movflags", "+faststart",
+            "-shortest",
+            str(temp_render_path),
         ]
 
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
         if result.returncode != 0 and use_nvenc:
             logger.warning("NVENC encoding failed; retrying with libx264 software fallback: %s", result.stderr)
             fallback_cmd = [
@@ -401,13 +412,29 @@ class VideoEditor:
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
                 "-b:a", "192k",
-                str(output_path),
+                "-movflags", "+faststart",
+                "-shortest",
+                str(temp_render_path),
             ]
-            result = subprocess.run(fallback_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            result = subprocess.run(
+                fallback_cmd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
 
         if result.returncode != 0:
+            if temp_render_path.exists():
+                try:
+                    temp_render_path.unlink()
+                except OSError:
+                    pass
             track_error(RuntimeError(f"FFmpeg render failed: {result.stderr}"), context="editor.render_clip")
             raise RuntimeError(f"FFmpeg render failed: {result.stderr}")
+
+        if temp_render_path.exists():
+            shutil.move(str(temp_render_path), str(output_path))
 
         if sub_file and sub_file.exists():
             try:
