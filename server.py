@@ -38,6 +38,7 @@ class GenerateJobRequest(BaseModel):
     burn_subtitles: bool = Field(default=True)
     burn_hook_title: bool = Field(default=False)
     subtitle_style: str = Field(default="karaoke")
+    resolution: int = Field(default=1080)
     provider: Optional[str] = Field(default=None)
 
 
@@ -54,6 +55,7 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
             style=req.style,
             burn_hook_title=req.burn_hook_title,
             subtitle_style=req.subtitle_style,
+            resolution=req.resolution,
             task_id=task_id,
         )
         tasks[task_id]["status"] = "completed"

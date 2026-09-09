@@ -279,6 +279,7 @@ class VideoEditor:
         style: str = "smart_crop",
         hook_title: Optional[str] = None,
         subtitle_style: str = "karaoke",
+        is_precut: bool = False,
     ) -> Path:
         """
         Cuts, scales, crops, and burns subtitles for a single short clip.
@@ -306,7 +307,8 @@ class VideoEditor:
             )
             current_video_label = "[vcomposed]"
         elif style in ("smart_crop", "crop_smart"):
-            crop_x = detect_speaker_crop_x(video_path, start_time, duration, target_w, target_h)
+            crop_sample_start = 0.0 if is_precut else start_time
+            crop_x = detect_speaker_crop_x(video_path, crop_sample_start, duration, target_w, target_h)
             if crop_x >= 0:
                 crop_expr = f"{crop_x}:0"
             else:
@@ -364,10 +366,12 @@ class VideoEditor:
         else:
             encoder_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p"]
 
+        seek_args = [] if is_precut else ["-ss", f"{start_time:.2f}"]
+
         cmd = [
             get_ffmpeg_bin(),
             "-y",
-            "-ss", f"{start_time:.2f}",
+            *seek_args,
             "-i", str(video_path),
             "-t", f"{duration:.2f}",
             "-filter_complex", ";".join(filter_complex),
@@ -385,7 +389,7 @@ class VideoEditor:
             fallback_cmd = [
                 get_ffmpeg_bin(),
                 "-y",
-                "-ss", f"{start_time:.2f}",
+                *seek_args,
                 "-i", str(video_path),
                 "-t", f"{duration:.2f}",
                 "-filter_complex", ";".join(filter_complex),
