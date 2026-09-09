@@ -68,10 +68,15 @@ class ShortsPipeline:
             if not transcript or not transcript.get("segments"):
                 raise RuntimeError("No speech or subtitles detected for this video.")
 
-            logger.info(
-                f"[3/4] Analyzing transcript with AI ({self.analyzer.provider}) for {n_clips} viral moments..."
+            heatmap_peaks = transcript.get("heatmap_peaks")
+            if heatmap_peaks:
+                logger.info(
+                    f"YouTube Heatmap: Aligning with {len(heatmap_peaks)} Most Replayed peaks (Top peak: {int(heatmap_peaks[0]['intensity']*100)}% retention)."
+                )
+
+            highlights = self.analyzer.find_highlights(
+                transcript["segments"], n_clips=n_clips, heatmap_peaks=heatmap_peaks
             )
-            highlights = self.analyzer.find_highlights(transcript["segments"], n_clips=n_clips)
 
             logger.info(f"[4/4] Rendering {len(highlights)} vertical short clips...")
             rendered_files: List[Dict[str, Any]] = []

@@ -67,7 +67,9 @@ class HighlightAnalyzer:
             data = data["highlights"]
         return data
 
-    def _analyze_with_gemini(self, transcript_str: str, n_clips: int) -> List[HighlightCandidate]:
+    def _analyze_with_gemini(
+        self, transcript_str: str, n_clips: int, heatmap_context: str = ""
+    ) -> List[HighlightCandidate]:
         import google.generativeai as genai
 
         if not config.gemini_api_key:
@@ -79,7 +81,7 @@ class HighlightAnalyzer:
             system_instruction=SYSTEM_PROMPT,
         )
 
-        prompt = f"Analyze the following timestamped transcript and return the top {n_clips} best clips (20-60s each):\n\n{transcript_str}"
+        prompt = f"{heatmap_context}Analyze the following timestamped transcript and return the top {n_clips} best clips (20-60s each):\n\n{transcript_str}"
         response = model.generate_content(
             prompt,
             generation_config={"temperature": 0.3},
@@ -88,14 +90,16 @@ class HighlightAnalyzer:
         raw_json = self._clean_json_response(response.text)
         return [HighlightCandidate(**item) for item in raw_json][:n_clips]
 
-    def _analyze_with_openai(self, transcript_str: str, n_clips: int) -> List[HighlightCandidate]:
+    def _analyze_with_openai(
+        self, transcript_str: str, n_clips: int, heatmap_context: str = ""
+    ) -> List[HighlightCandidate]:
         from openai import OpenAI
 
         if not config.openai_api_key:
             raise ValueError("OPENAI_API_KEY is not configured in .env")
 
         client = OpenAI(api_key=config.openai_api_key)
-        prompt = f"Analyze the following timestamped transcript and return the top {n_clips} best clips (20-60s each):\n\n{transcript_str}"
+        prompt = f"{heatmap_context}Analyze the following timestamped transcript and return the top {n_clips} best clips (20-60s each):\n\n{transcript_str}"
 
         response = client.chat.completions.create(
             model=config.openai_model,
@@ -114,18 +118,56 @@ class HighlightAnalyzer:
         self,
         transcript_segments: List[Dict[str, Any]],
         n_clips: int = 3,
+        heatmap_peaks: Optional[List[Dict[str, Any]]] = None,
     ) -> List[HighlightCandidate]:
-        """Detects top highlight moments based on transcript."""
+        """Detects top highlight moments based on transcript and YouTube viewer retention peaks."""
         transcript_str = self._prepare_transcript_text(transcript_segments)
 
-        if self.provider == "gemini":
-            candidates = self._analyze_with_gemini(transcript_str, n_clips)
-        elif self.provider == "openai":
-            candidates = self._analyze_with_openai(transcript_str, n_clips)
-        else:
-            raise ValueError(f"Unsupported LLM provider: {self.provider}. Use 'gemini' or 'openai'.")
+        heatmap_context = ""
+        if heatmap_peaks:
+            lines = ["\nREAL AUDIENCE RETENTION DATA (YouTube 'Most Replayed' Heatmap Peaks):"]
+            for i, p in enumerate(heatmap_peaks[:5], 1):
+                lines.append(
+                    f"- Peak #{i}: {p['start_time']}s to {p['end_time']}s (Audience Replay Intensity: {int(p['intensity']*100)}%)"
+                )
+            lines.append("PRIORITIZE selecting clips around these proven high-retention windows where viewers replayed the video the most.")
+            heatmap_context = "\n".join(lines) + "\n\n"
 
-        # Fallback if no highlights returned by the LLM
+        candidates: List[HighlightCandidate] = []
+        try:
+            if self.provider == "gemini":
+                candidates = self._analyze_with_gemini(transcript_str, n_clips, heatmap_context=heatmap_context)
+            elif self.provider == "openai":
+                candidates = self._analyze_with_openai(transcript_str, n_clips, heatmap_context=heatmap_context)
+            else:
+                raise ValueError(f"Unsupported LLM provider: {self.provider}. Use 'gemini' or 'openai'.")
+        except Exception:
+            candidates = []
+
+        # Fallback using YouTube heatmap peaks directly if available
+        if not candidates and heatmap_peaks and transcript_segments:
+            for i, p in enumerate(heatmap_peaks[:n_clips], 1):
+                pk_s = p["start_time"]
+                matching_seg = next(
+                    (s for s in transcript_segments if abs(s["start"] - pk_s) < 20.0),
+                    transcript_segments[0],
+                )
+                start_c = max(0.0, pk_s - 2.0)
+                end_c = min(float(transcript_segments[-1].get("end", start_c + 35.0)), start_c + 38.0)
+                hook_txt = matching_seg.get("text", "Most Replayed Moment")[:60].strip()
+                intensity_pct = int(p["intensity"] * 100)
+                candidates.append(
+                    HighlightCandidate(
+                        title=f"Viral Peak #{i}",
+                        hook=hook_txt,
+                        start=round(start_c, 2),
+                        end=round(end_c, 2),
+                        score=min(99, int(88 + p["intensity"] * 11)),
+                        reason=f"Aligned with YouTube's #{i} Most Replayed spike ({intensity_pct}% viewer retention).",
+                    )
+                )
+
+        # Generic fallback if no highlights returned
         if not candidates and transcript_segments:
             start_t = float(transcript_segments[0].get("start", 0.0))
             end_t = float(transcript_segments[-1].get("end", start_t + 15.0))

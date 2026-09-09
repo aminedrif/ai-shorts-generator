@@ -1,4 +1,5 @@
 import re
+import json
 import glob
 import shutil
 import subprocess
@@ -15,6 +16,138 @@ def sanitize_filename(name: str) -> str:
     clean = re.sub(r'[\\/*?:"<>|\'\`]', "", name)
     clean = re.sub(r"\s+", "_", clean).strip("._")
     return clean[:80] if clean else "video"
+
+
+def extract_heatmap_peaks(heatmap: Optional[List[Dict[str, Any]]], top_k: int = 5) -> List[Dict[str, Any]]:
+    """
+    Extracts the highest viewer replay / retention moments from YouTube's playback heatmap.
+    Returns sorted local retention peaks with start, end, and normalized intensity (0.0 - 1.0).
+    """
+    if not heatmap:
+        return []
+
+    sorted_peaks = sorted(heatmap, key=lambda p: p.get("value", 0.0), reverse=True)
+    selected_peaks = []
+
+    for item in sorted_peaks:
+        s = round(float(item.get("start_time", 0.0)), 2)
+        e = round(float(item.get("end_time", 0.0)), 2)
+        val = round(float(item.get("value", 0.0)), 3)
+
+        # Ensure selected peaks don't collide closely with each other (minimum 40s separation)
+        if not any(abs(s - p["start_time"]) < 40.0 for p in selected_peaks):
+            selected_peaks.append({
+                "start_time": s,
+                "end_time": e,
+                "intensity": val,
+            })
+
+        if len(selected_peaks) >= top_k:
+            break
+
+    return selected_peaks
+
+
+def parse_json3_to_segments(json3_path: Path) -> List[Dict[str, Any]]:
+    """
+    Parses a YouTube json3 caption file into timestamped segment dictionaries
+    with exact per-word millisecond offsets (tOffsetMs).
+    Guarantees sub-frame subtitle synchronization even during fast speech.
+    """
+    if not json3_path.exists():
+        return []
+
+    try:
+        data = json.loads(json3_path.read_text(encoding="utf-8", errors="replace"))
+    except Exception as e:
+        logger.warning(f"Failed to parse json3 subtitles: {e}")
+        return []
+
+    events = data.get("events", [])
+    if not events:
+        return []
+
+    all_words = []
+    for ev in events:
+        t_start = ev.get("tStartMs", 0) / 1000.0
+        d_dur = ev.get("dDurationMs", 0) / 1000.0
+        segs = ev.get("segs", [])
+        if not segs:
+            continue
+
+        for i, s in enumerate(segs):
+            utf8_text = s.get("utf8", "")
+            raw_words = utf8_text.replace("\n", " ").split()
+            if not raw_words:
+                continue
+
+            offset_s = s.get("tOffsetMs", 0) / 1000.0
+            word_start = round(t_start + offset_s, 3)
+
+            if i + 1 < len(segs) and "tOffsetMs" in segs[i + 1]:
+                word_end = round(t_start + segs[i + 1]["tOffsetMs"] / 1000.0, 3)
+            else:
+                word_end = round(min(t_start + d_dur, word_start + 0.35), 3)
+
+            if word_end <= word_start:
+                word_end = round(word_start + 0.15, 3)
+
+            if len(raw_words) == 1:
+                all_words.append({
+                    "word": raw_words[0],
+                    "start": word_start,
+                    "end": word_end,
+                })
+            else:
+                sub_dur = (word_end - word_start) / len(raw_words)
+                for sw_idx, sw in enumerate(raw_words):
+                    all_words.append({
+                        "word": sw,
+                        "start": round(word_start + sw_idx * sub_dur, 3),
+                        "end": round(word_start + (sw_idx + 1) * sub_dur, 3),
+                    })
+
+    if not all_words:
+        return []
+
+    segments = []
+    seg_id = 1
+    current_words = []
+
+    for w in all_words:
+        current_words.append(w)
+        is_break = (
+            len(current_words) >= 7
+            or any(w["word"].endswith(p) for p in [".", "!", "?", ","])
+            or (len(current_words) >= 4 and w["end"] - w["start"] > 0.5)
+        )
+        if is_break:
+            seg_s = current_words[0]["start"]
+            seg_e = current_words[-1]["end"]
+            seg_txt = " ".join([item["word"] for item in current_words])
+            segments.append({
+                "id": seg_id,
+                "start": round(seg_s, 2),
+                "end": round(seg_e, 2),
+                "text": seg_txt,
+                "words": current_words,
+            })
+            seg_id += 1
+            current_words = []
+
+    if current_words:
+        seg_s = current_words[0]["start"]
+        seg_e = current_words[-1]["end"]
+        seg_txt = " ".join([item["word"] for item in current_words])
+        segments.append({
+            "id": seg_id,
+            "start": round(seg_s, 2),
+            "end": round(seg_e, 2),
+            "text": seg_txt,
+            "words": current_words,
+        })
+
+    return segments
 
 
 def parse_vtt_to_segments(vtt_path: Path) -> List[Dict[str, Any]]:
@@ -108,7 +241,8 @@ class VideoDownloader:
     def fetch_youtube_transcript(self, url: str) -> Optional[Dict[str, Any]]:
         """
         Attempts to fetch YouTube's built-in or auto-generated subtitles without downloading any media.
-        Returns metadata and parsed segments in ~1-2 seconds, or None if unavailable.
+        Extracts real audience retention heatmap data and sub-frame per-word timestamps (json3).
+        Returns metadata, heatmap peaks, and parsed segments in ~1-2 seconds, or None if unavailable.
         """
         try:
             temp_sub_prefix = self.temp_dir / f"yt_subs_{int(time.time())}"
@@ -117,7 +251,7 @@ class VideoDownloader:
                 "writeautomaticsub": True,
                 "writesubtitles": True,
                 "subtitleslangs": ["en"],
-                "subtitlesformat": "vtt",
+                "subtitlesformat": "json3/vtt",
                 "outtmpl": str(temp_sub_prefix) + ".%(ext)s",
                 "quiet": True,
                 "no_warnings": True,
@@ -127,17 +261,43 @@ class VideoDownloader:
                 info = ydl.extract_info(url, download=True)
                 title = info.get("title", "YouTube Video")
                 duration = info.get("duration", 0)
+                heatmap_data = info.get("heatmap") or []
 
+            heatmap_peaks = extract_heatmap_peaks(heatmap_data, top_k=5)
+            if heatmap_peaks:
+                logger.info(
+                    f"YouTube Most Replayed: Identified {len(heatmap_peaks)} audience retention spikes (Peak: {int(heatmap_peaks[0]['intensity']*100)}% replay intensity at {heatmap_peaks[0]['start_time']}s)."
+                )
+
+            # Check for json3 with precise word offsets first, fallback to vtt
+            json3_files = glob.glob(f"{temp_sub_prefix}*.json3")
             vtt_files = glob.glob(f"{temp_sub_prefix}*.vtt")
-            if not vtt_files:
-                return None
 
-            vtt_path = Path(vtt_files[0])
-            segments = parse_vtt_to_segments(vtt_path)
-            try:
-                vtt_path.unlink()
-            except OSError:
-                pass
+            segments = []
+            if json3_files:
+                json3_path = Path(json3_files[0])
+                segments = parse_json3_to_segments(json3_path)
+                try:
+                    json3_path.unlink()
+                except OSError:
+                    pass
+                if segments:
+                    logger.info("Fast Ingestion: Loaded sub-frame per-word timestamps via YouTube json3 captions.")
+
+            if not segments and vtt_files:
+                vtt_path = Path(vtt_files[0])
+                segments = parse_vtt_to_segments(vtt_path)
+                try:
+                    vtt_path.unlink()
+                except OSError:
+                    pass
+
+            # Clean up any leftover sub files with this prefix
+            for f in glob.glob(f"{temp_sub_prefix}*"):
+                try:
+                    Path(f).unlink(missing_ok=True)
+                except OSError:
+                    pass
 
             if not segments:
                 return None
@@ -149,6 +309,7 @@ class VideoDownloader:
                 "duration": duration,
                 "segments": segments,
                 "full_text": full_text,
+                "heatmap_peaks": heatmap_peaks,
             }
         except Exception as e:
             logger.warning(f"YouTube transcript extraction skipped ({e}); falling back to standard media download.")

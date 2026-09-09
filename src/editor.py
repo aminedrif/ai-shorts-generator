@@ -215,35 +215,55 @@ class VideoEditor:
                         })
 
         if karaoke and valid_words:
-            # Group words into natural chunks of 3-4 words or punctuation breaks
+            # Group words into natural phrases of 3-5 words or punctuation breaks
             chunks = []
             current_chunk = []
             for w in valid_words:
                 current_chunk.append(w)
-                if len(current_chunk) >= 4 or any(w["word"].endswith(p) for p in [".", "!", "?", ","]):
+                has_punct = any(w["word"].endswith(p) for p in [".", "!", "?", ","])
+                if len(current_chunk) >= 5 or (len(current_chunk) >= 3 and has_punct):
                     chunks.append(current_chunk)
                     current_chunk = []
             if current_chunk:
                 chunks.append(current_chunk)
 
-            for chunk in chunks:
+            for chunk_idx, chunk in enumerate(chunks):
+                c_start = chunk[0]["start"]
+                last_w_end = chunk[-1]["end"]
+
+                # Phrase persists smoothly until next phrase begins or a natural short pause
+                if chunk_idx + 1 < len(chunks):
+                    next_c_start = chunks[chunk_idx + 1][0]["start"]
+                    if next_c_start > last_w_end:
+                        c_end = min(next_c_start - 0.05, last_w_end + 0.8)
+                    else:
+                        c_end = next_c_start
+                else:
+                    c_end = min(duration, last_w_end + 0.8)
+
+                c_end = max(c_end, last_w_end)
+
                 for i, active_w in enumerate(chunk):
                     w_start = active_w["start"]
-                    if i < len(chunk) - 1:
-                        w_end = min(active_w["end"], chunk[i + 1]["start"])
+                    if i + 1 < len(chunk):
+                        next_s = chunk[i + 1]["start"]
+                        w_end = max(w_start + 0.12, next_s)
                     else:
-                        w_end = active_w["end"]
+                        w_end = c_end
 
                     if w_end <= w_start:
-                        w_end = w_start + 0.1
+                        w_end = w_start + 0.12
 
                     formatted_parts = []
                     for j, w in enumerate(chunk):
                         if j < i:
-                            formatted_parts.append(f"{{\\c&H00C0C0C0}}{w['word']}")
+                            # Soft light gray for already spoken words
+                            formatted_parts.append(f"{{\\c&H00D0D0D0}}{w['word']}")
                         elif j == i:
-                            formatted_parts.append(f"{{\\c&H0000FFFF\\t(0,80,\\fscx108\\fscy108)}}{w['word']}")
+                            # Bright yellow with gentle scale pop for current active word
+                            formatted_parts.append(f"{{\\c&H0000FFFF\\t(0,60,\\fscx106\\fscy106)}}{w['word']}")
                         else:
+                            # Crisp white for upcoming words in the phrase
                             formatted_parts.append(f"{{\\c&H00FFFFFF}}{w['word']}")
 
                     line_text = " ".join(formatted_parts)
