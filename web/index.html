@@ -769,17 +769,127 @@
     .phone-canvas {
       position: absolute;
       inset: 0;
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-      background-image: linear-gradient(180deg, #1e1e24 0%, #121215 100%);
-      transition: background-image 0.5s ease;
+      background: #000000;
+      overflow: hidden;
+      cursor: pointer;
     }
 
     .phone-canvas-overlay {
       position: absolute;
       inset: 0;
       background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 35%, rgba(0,0,0,0.85) 100%);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Embedded YouTube Player inside Phone (Scaled to fill 9:16 vertical chassis) */
+    .phone-youtube-wrap {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      z-index: 2;
+      background: #000000;
+    }
+
+    .phone-youtube-iframe {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1140px;
+      height: 642px;
+      border: 0;
+      pointer-events: none;
+    }
+
+    /* HTML5 Video Player inside Phone (for local uploads & rendered clips) */
+    .phone-html5-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 2;
+      background: #000000;
+    }
+
+    /* Empty state placeholder when no video is active */
+    .phone-empty-state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      text-align: center;
+      z-index: 1;
+      background: linear-gradient(180deg, #18181c 0%, #0d0d10 100%);
+      user-select: none;
+    }
+
+    .phone-empty-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      margin-bottom: 14px;
+      animation: pulsePlay 2.5s infinite ease-in-out;
+    }
+
+    .phone-empty-icon svg {
+      width: 22px;
+      height: 22px;
+      margin-left: 2px;
+    }
+
+    @keyframes pulsePlay {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 24px rgba(255, 255, 255, 0.18); }
+    }
+
+    .phone-empty-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 6px;
+    }
+
+    .phone-empty-sub {
+      font-size: 11px;
+      color: var(--text-subtle);
+      line-height: 1.4;
+    }
+
+    /* Play / Pause indicator */
+    .phone-play-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      z-index: 25;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.2s ease;
+    }
+
+    .phone-play-indicator.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
     }
 
     /* TikTok Overlay UI */
@@ -1216,6 +1326,33 @@
       padding: 0 8px;
       outline: none;
       cursor: pointer;
+    }
+
+    .preview-phone-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .preview-phone-btn:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .preview-phone-btn svg {
+      width: 12px;
+      height: 12px;
+      fill: #34d399;
     }
 
     /* PER-CLIP DELETE BUTTON */
@@ -1662,8 +1799,46 @@
             </div>
           </div>
 
-          <!-- Live Canvas Background (Thumbnail or dark fallback) -->
-          <div class="phone-canvas" id="phoneCanvas">
+          <!-- Live Canvas Background with Running Video -->
+          <div class="phone-canvas" id="phoneCanvas" onclick="handlePhoneCanvasClick(event)">
+            <!-- YouTube Embed Player (Plays YouTube video directly inside iPhone) -->
+            <div class="phone-youtube-wrap" id="phoneYoutubeWrap" style="display: none;">
+              <iframe 
+                id="phoneYoutubeIframe"
+                class="phone-youtube-iframe"
+                src=""
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+              ></iframe>
+            </div>
+
+            <!-- HTML5 Video Player (Plays uploaded videos and generated clips) -->
+            <video 
+              id="phoneVideoPlayer"
+              class="phone-html5-video"
+              style="display: none;"
+              autoplay
+              loop
+              muted
+              playsinline
+            ></video>
+
+            <!-- Empty State / Placeholder -->
+            <div class="phone-empty-state" id="phoneEmptyState">
+              <div class="phone-empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+              </div>
+              <div class="phone-empty-title">Live Video Preview</div>
+              <div class="phone-empty-sub">Paste a YouTube URL or upload a video to watch it run live here</div>
+            </div>
+
+            <!-- Play / Pause Flash Indicator -->
+            <div class="phone-play-indicator" id="phonePlayIndicator">
+              <div id="playIndicatorIcon"></div>
+            </div>
+
             <div class="phone-canvas-overlay"></div>
           </div>
 
@@ -1675,6 +1850,22 @@
 
           <!-- Right Action Buttons -->
           <div class="tiktok-actions">
+            <!-- Sound Toggle Button -->
+            <div class="action-item" id="phoneAudioToggle" onclick="togglePhoneAudio(event)" title="Toggle Sound">
+              <div class="action-icon-circle">
+                <svg id="phoneMutedIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <line x1="23" y1="9" x2="17" y2="15"/>
+                  <line x1="17" y1="9" x2="23" y2="15"/>
+                </svg>
+                <svg id="phoneUnmutedIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+              </div>
+              <span class="action-count" id="phoneAudioLabel">Sound</span>
+            </div>
+
             <div class="action-item">
               <div class="action-icon-circle">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1800,6 +1991,171 @@
       restoreActiveTask();
     });
 
+    // Phone Video Player & Media Management
+    let currentPhoneMediaType = null; // 'youtube' | 'video' | null
+    let isPhoneMuted = true;
+    let isPhonePaused = false;
+    let currentLoadedVideoId = null;
+
+    function loadYouTubeInPhone(videoId) {
+      if (!videoId) return;
+      if (currentLoadedVideoId === videoId && currentPhoneMediaType === 'youtube') {
+        return;
+      }
+      currentLoadedVideoId = videoId;
+      currentPhoneMediaType = 'youtube';
+
+      const ytWrap = document.getElementById('phoneYoutubeWrap');
+      const ytIframe = document.getElementById('phoneYoutubeIframe');
+      const html5Video = document.getElementById('phoneVideoPlayer');
+      const emptyState = document.getElementById('phoneEmptyState');
+
+      if (html5Video) {
+        html5Video.pause();
+        html5Video.src = '';
+        html5Video.style.display = 'none';
+      }
+
+      if (emptyState) emptyState.style.display = 'none';
+
+      // YouTube player with autoplay, loop, mute, inline playback, and JS API
+      const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=${isPhoneMuted ? 1 : 0}&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1`;
+      ytIframe.src = embedUrl;
+      ytWrap.style.display = 'block';
+      isPhonePaused = false;
+    }
+
+    function loadVideoInPhone(videoSrc, title) {
+      if (!videoSrc) return;
+      currentLoadedVideoId = null;
+      currentPhoneMediaType = 'video';
+
+      const ytWrap = document.getElementById('phoneYoutubeWrap');
+      const ytIframe = document.getElementById('phoneYoutubeIframe');
+      const html5Video = document.getElementById('phoneVideoPlayer');
+      const emptyState = document.getElementById('phoneEmptyState');
+
+      if (ytIframe) ytIframe.src = '';
+      if (ytWrap) ytWrap.style.display = 'none';
+      if (emptyState) emptyState.style.display = 'none';
+
+      if (html5Video) {
+        html5Video.src = videoSrc;
+        html5Video.muted = isPhoneMuted;
+        html5Video.style.display = 'block';
+        html5Video.play().catch(e => console.log('Autoplay deferred', e));
+        isPhonePaused = false;
+      }
+
+      if (title) {
+        const captionEl = document.querySelector('.creator-caption');
+        if (captionEl) captionEl.innerText = title;
+      }
+    }
+
+    function resetPhoneMedia() {
+      currentLoadedVideoId = null;
+      currentPhoneMediaType = null;
+
+      const ytWrap = document.getElementById('phoneYoutubeWrap');
+      const ytIframe = document.getElementById('phoneYoutubeIframe');
+      const html5Video = document.getElementById('phoneVideoPlayer');
+      const emptyState = document.getElementById('phoneEmptyState');
+
+      if (ytIframe) ytIframe.src = '';
+      if (ytWrap) ytWrap.style.display = 'none';
+      if (html5Video) {
+        html5Video.pause();
+        html5Video.src = '';
+        html5Video.style.display = 'none';
+      }
+      if (emptyState) emptyState.style.display = 'flex';
+    }
+
+    function sendYoutubeCommand(func, args = '') {
+      const iframe = document.getElementById('phoneYoutubeIframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage(JSON.stringify({
+          event: 'command',
+          func: func,
+          args: args
+        }), '*');
+      }
+    }
+
+    function handlePhoneCanvasClick(event) {
+      if (event.target.closest('.tiktok-actions') || event.target.closest('.tiktok-top-nav')) {
+        return;
+      }
+      togglePhonePlayPause();
+    }
+
+    function togglePhonePlayPause() {
+      if (currentPhoneMediaType === 'youtube') {
+        isPhonePaused = !isPhonePaused;
+        sendYoutubeCommand(isPhonePaused ? 'pauseVideo' : 'playVideo');
+        flashPlayIndicator(isPhonePaused);
+      } else if (currentPhoneMediaType === 'video') {
+        const html5Video = document.getElementById('phoneVideoPlayer');
+        if (html5Video) {
+          if (html5Video.paused) {
+            html5Video.play();
+            isPhonePaused = false;
+            flashPlayIndicator(false);
+          } else {
+            html5Video.pause();
+            isPhonePaused = true;
+            flashPlayIndicator(true);
+          }
+        }
+      }
+    }
+
+    function flashPlayIndicator(isPaused) {
+      const indicator = document.getElementById('phonePlayIndicator');
+      const icon = document.getElementById('playIndicatorIcon');
+      if (!indicator || !icon) return;
+
+      if (isPaused) {
+        icon.innerHTML = `<svg viewBox="0 0 24 24" fill="#ffffff" width="26" height="26"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+      } else {
+        icon.innerHTML = `<svg viewBox="0 0 24 24" fill="#ffffff" width="26" height="26"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+      }
+
+      indicator.classList.add('show');
+      setTimeout(() => {
+        indicator.classList.remove('show');
+      }, 500);
+    }
+
+    function togglePhoneAudio(event) {
+      if (event) event.stopPropagation();
+      isPhoneMuted = !isPhoneMuted;
+
+      const mutedIcon = document.getElementById('phoneMutedIcon');
+      const unmutedIcon = document.getElementById('phoneUnmutedIcon');
+      const audioLabel = document.getElementById('phoneAudioLabel');
+
+      if (isPhoneMuted) {
+        mutedIcon.style.display = 'block';
+        unmutedIcon.style.display = 'none';
+        audioLabel.innerText = 'Sound';
+      } else {
+        mutedIcon.style.display = 'none';
+        unmutedIcon.style.display = 'block';
+        audioLabel.innerText = 'Active';
+      }
+
+      if (currentPhoneMediaType === 'youtube') {
+        sendYoutubeCommand(isPhoneMuted ? 'mute' : 'unMute');
+      } else if (currentPhoneMediaType === 'video') {
+        const html5Video = document.getElementById('phoneVideoPlayer');
+        if (html5Video) {
+          html5Video.muted = isPhoneMuted;
+        }
+      }
+    }
+
     // Check and restore active task on page load / refresh
     async function restoreActiveTask() {
       // Restore previously entered source if present
@@ -1811,7 +2167,7 @@
           document.getElementById('clearBtn').style.display = 'block';
           const videoId = extractYouTubeId(savedSource);
           if (videoId) {
-            document.getElementById('phoneCanvas').style.backgroundImage = `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`;
+            loadYouTubeInPhone(videoId);
           }
         }
       }
@@ -1863,7 +2219,7 @@
           document.getElementById('clearBtn').style.display = 'block';
           const videoId = extractYouTubeId(taskData.source);
           if (videoId) {
-            document.getElementById('phoneCanvas').style.backgroundImage = `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`;
+            loadYouTubeInPhone(videoId);
           }
         }
         localStorage.setItem('activeSource', taskData.source);
@@ -1898,36 +2254,41 @@
       document.getElementById('uploadBox').style.display = (mode === 'upload') ? 'block' : 'none';
     }
 
-    // URL input listener for YouTube live thumbnail preview
+    // URL input listener for live running video in phone
     function setupUrlListener() {
       const input = document.getElementById('videoSourceInput');
       const clearBtn = document.getElementById('clearBtn');
 
-      input.addEventListener('input', () => {
+      function checkAndLoadUrl() {
         const val = input.value.trim();
         clearBtn.style.display = val ? 'block' : 'none';
-        
         const videoId = extractYouTubeId(val);
-        const canvas = document.getElementById('phoneCanvas');
         if (videoId) {
-          canvas.style.backgroundImage = `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`;
-        } else {
-          canvas.style.backgroundImage = 'linear-gradient(180deg, #1e1e24 0%, #121215 100%)';
+          loadYouTubeInPhone(videoId);
+        } else if (!val) {
+          resetPhoneMedia();
         }
-      });
+      }
+
+      input.addEventListener('input', checkAndLoadUrl);
+      input.addEventListener('paste', () => setTimeout(checkAndLoadUrl, 50));
+      input.addEventListener('change', checkAndLoadUrl);
     }
 
     function clearInput() {
       const input = document.getElementById('videoSourceInput');
       input.value = '';
       document.getElementById('clearBtn').style.display = 'none';
-      document.getElementById('phoneCanvas').style.backgroundImage = 'linear-gradient(180deg, #1e1e24 0%, #121215 100%)';
+      localStorage.removeItem('activeSource');
+      resetPhoneMedia();
     }
 
     function handleFileSelected(event) {
       const file = event.target.files[0];
       if (file) {
         document.getElementById('uploadBoxTitle').innerText = file.name;
+        const fileUrl = URL.createObjectURL(file);
+        loadVideoInPhone(fileUrl, file.name);
       }
     }
 
@@ -2340,51 +2701,69 @@
                   </div>
                 </div>
 
-                <!-- Actions: Download & DELETE BUTTON -->
-                <div class="clip-actions">
-                  <div class="download-group">
-                    <a href="${clip.download_url}" download="${clip.name}" class="download-link">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
+                  <!-- Actions: Download, Play in iPhone & DELETE BUTTON -->
+                  <div class="clip-actions">
+                    <div class="download-group">
+                      <a href="${clip.download_url}" download="${clip.name}" class="download-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                          <polyline points="7 10 12 15 17 10"/>
+                          <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download
+                      </a>
+                      <select class="download-select" onchange="handlePresetDownload(this, '${clip.download_url}', '${clip.name}')">
+                        <option value="original">Original</option>
+                        <option value="tiktok">TikTok</option>
+                        <option value="reels">Reels</option>
+                        <option value="shorts">Shorts</option>
+                      </select>
+                    </div>
+
+                    <!-- PLAY IN IPHONE BUTTON -->
+                    <button 
+                      type="button" 
+                      class="preview-phone-btn" 
+                      title="Play this clip inside the iPhone 16 mockup"
+                      onclick="loadVideoInPhone('${clip.download_url}', '${escapeHtml(clip.title || clip.name)}'); document.querySelector('.studio-right').scrollIntoView({behavior:'smooth', block:'center'});"
+                    >
+                      <svg viewBox="0 0 24 24">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
                       </svg>
-                      Download
-                    </a>
-                    <select class="download-select" onchange="handlePresetDownload(this, '${clip.download_url}', '${clip.name}')">
-                      <option value="original">Original</option>
-                      <option value="tiktok">TikTok</option>
-                      <option value="reels">Reels</option>
-                      <option value="shorts">Shorts</option>
-                    </select>
+                      Play in Phone
+                    </button>
+
+                    <!-- PER-CLIP DELETE BUTTON -->
+                    <button 
+                      type="button" 
+                      class="delete-clip-btn" 
+                      title="Delete clip permanently"
+                      onclick="openDeleteModal('${escapeHtml(clip.name)}', '${escapeHtml(clip.title || clip.name)}')"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        <line x1="10" y1="11" x2="10" y2="17"/>
+                        <line x1="14" y1="11" x2="14" y2="17"/>
+                      </svg>
+                      Delete
+                    </button>
                   </div>
 
-                  <!-- PER-CLIP DELETE BUTTON -->
-                  <button 
-                    type="button" 
-                    class="delete-clip-btn" 
-                    title="Delete clip permanently"
-                    onclick="openDeleteModal('${escapeHtml(clip.name)}', '${escapeHtml(clip.title || clip.name)}')"
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6"/>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                      <line x1="10" y1="11" x2="10" y2="17"/>
-                      <line x1="14" y1="11" x2="14" y2="17"/>
-                    </svg>
-                    Delete
-                  </button>
                 </div>
-
               </div>
-            </div>
-          `;
-        }).join('');
+            `;
+          }).join('');
 
-      } catch (err) {
-        console.error('Fetch clips error:', err);
+          // If no video is currently running in the phone and clips exist, auto-run the first clip
+          if (!currentPhoneMediaType && clips.length > 0 && !document.getElementById('videoSourceInput').value.trim()) {
+            loadVideoInPhone(clips[0].download_url, clips[0].title || clips[0].name);
+          }
+
+        } catch (err) {
+          console.error('Fetch clips error:', err);
+        }
       }
-    }
 
     // Format helpers
     function formatTime(seconds) {
