@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from src.config import config
 from src.pipeline import ShortsPipeline
+from src.downloader import VideoDownloader
 from src.logger import logger, error_tracker, track_error
 
 app = FastAPI(title="AI Shorts Generator API", version="1.0.0")
@@ -187,6 +188,31 @@ def cancel_task(task_id: str):
     logger.info(f"Task {task_id} cancellation registered.")
     return {"status": "cancelled", "task_id": task_id}
 
+
+
+@app.get("/api/preview")
+def preview_video_source(url: str):
+    """
+    Inspects any video link (YouTube, TikTok, Instagram, Twitter/X, Vimeo, direct MP4,
+    or arbitrary webpage) and returns metadata and playable stream information.
+    """
+    clean_url = url.strip()
+    if not clean_url:
+        raise HTTPException(status_code=400, detail="URL is required")
+    try:
+        downloader = VideoDownloader()
+        info = downloader.extract_preview_info(clean_url)
+        return info
+    except Exception as e:
+        logger.warning(f"Preview extraction failed for '{clean_url}': {e}")
+        return {
+            "status": "error",
+            "platform": "link",
+            "platform_label": "Web Link",
+            "title": "Video Link",
+            "direct_video_url": None,
+            "thumbnail": None,
+        }
 
 
 @app.get("/api/clips")

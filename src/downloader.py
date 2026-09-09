@@ -4,11 +4,158 @@ import glob
 import shutil
 import subprocess
 import time
+import urllib.request
+import urllib.parse
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
+import cv2
+import bs4
 import yt_dlp
 from src.config import config, get_ffmpeg_bin
 from src.logger import logger
+
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/128.0.0.0 Safari/537.36"
+)
+
+
+def get_media_duration(video_path: Path) -> float:
+    """Calculates exact video duration in seconds via OpenCV, falling back to ffprobe."""
+    try:
+        cap = cv2.VideoCapture(str(video_path))
+        if cap.isOpened():
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+            cap.release()
+            if fps > 0 and frames > 0:
+                return round(frames / fps, 2)
+    except Exception as e:
+        logger.debug(f"OpenCV duration calculation failed: {e}")
+
+    try:
+        cmd = [
+            get_ffmpeg_bin().replace("ffmpeg", "ffprobe"),
+            "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            str(video_path),
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        if res.returncode == 0 and res.stdout.strip():
+            return round(float(res.stdout.strip()), 2)
+    except Exception as pe:
+        logger.debug(f"FFprobe duration calculation failed: {pe}")
+
+    return 0.0
+
+
+def fetch_webpage_html(url: str) -> Tuple[Optional[str], Optional[str]]:
+    """Fetches HTML content from an arbitrary webpage using browser headers.
+    Returns (html, final_url) or (None, None)."""
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": BROWSER_USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content_type = resp.headers.get("Content-Type", "").lower()
+            if any(vt in content_type for vt in ["video/", "application/vnd.apple.mpegurl", "application/x-mpegurl"]):
+                return None, resp.geturl()
+            charset = "utf-8"
+            if "charset=" in content_type:
+                charset = content_type.split("charset=")[-1].split(";")[0].strip()
+            raw = resp.read()
+            try:
+                return raw.decode(charset, errors="replace"), resp.geturl()
+            except Exception:
+                return raw.decode("utf-8", errors="replace"), resp.geturl()
+    except Exception as e:
+        logger.debug(f"Webpage fetch skipped: {e}")
+        return None, None
+
+
+def extract_embedded_video_url(html: str, base_url: str) -> Optional[str]:
+    """Inspects arbitrary HTML for video streams, og:video, HTML5 <video>, JSON-LD, or embeds."""
+    if not html:
+        return None
+    try:
+        soup = bs4.BeautifulSoup(html, "html.parser")
+        for prop in ["og:video", "og:video:url", "og:video:secure_url", "twitter:player:stream"]:
+            meta = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
+            if meta and meta.get("content"):
+                return urllib.parse.urljoin(base_url, meta["content"].strip())
+
+        for v in soup.find_all("video"):
+            if v.get("src"):
+                return urllib.parse.urljoin(base_url, v["src"].strip())
+            for s in v.find_all("source"):
+                if s.get("src"):
+                    return urllib.parse.urljoin(base_url, s["src"].strip())
+
+        for script in soup.find_all("script", type="application/ld+json"):
+            if script.string:
+                m = re.search(r'"(?:contentUrl|embedUrl)"\s*:\s*"([^"]+)"', script.string)
+                if m:
+                    return urllib.parse.urljoin(base_url, m.group(1).strip())
+
+        raw_matches = re.findall(r'https?://[^\s"\'<>]+\.(?:mp4|webm|m3u8|mov|m4v)(?:\?[^\s"\'<>]*)?', html)
+        if raw_matches:
+            return raw_matches[0].strip()
+
+        for iframe in soup.find_all("iframe"):
+            src = iframe.get("src")
+            if src and any(p in src for p in ["youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "player."]):
+                return urllib.parse.urljoin(base_url, src.strip())
+    except Exception as e:
+        logger.debug(f"Failed to parse embedded video from HTML: {e}")
+
+    return None
+
+
+def download_with_ffmpeg(stream_url: str, output_path: Path) -> Path:
+    """Downloads or stream-copies a direct video/HLS URL directly via FFmpeg."""
+    ffmpeg_exe = get_ffmpeg_bin()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # First attempt: stream copy (lossless, instant)
+    cmd_copy = [
+        ffmpeg_exe,
+        "-y",
+        "-user_agent", BROWSER_USER_AGENT,
+        "-i", stream_url,
+        "-c", "copy",
+        "-bsf:a", "aac_adtstoasc",
+        str(output_path),
+    ]
+    res = subprocess.run(cmd_copy, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if res.returncode == 0 and output_path.exists() and output_path.stat().st_size > 1000:
+        return output_path
+
+    # Fallback attempt: re-encode to standard h264/aac
+    cmd_encode = [
+        ffmpeg_exe,
+        "-y",
+        "-user_agent", BROWSER_USER_AGENT,
+        "-i", stream_url,
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "22",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-pix_fmt", "yuv420p",
+        str(output_path),
+    ]
+    res_enc = subprocess.run(cmd_encode, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if res_enc.returncode != 0 or not output_path.exists() or output_path.stat().st_size == 0:
+        raise RuntimeError(f"FFmpeg direct download failed: {res_enc.stderr[:300]}")
+
+    return output_path
 
 
 def sanitize_filename(name: str) -> str:
@@ -363,21 +510,24 @@ class VideoDownloader:
 
     def process_source(self, source: str, resolution: int = 1080) -> Dict[str, Any]:
         """
-        Accepts either a YouTube URL or a local file path.
+        Accepts any video link (YouTube, TikTok, Instagram, Twitter/X, Vimeo, direct MP4/stream,
+        or arbitrary webpage containing an embedded video), or a local video file path.
         Returns metadata containing video path, audio path, title, and duration.
         """
+        source = source.strip()
         source_path = Path(source)
         if source_path.exists() and source_path.is_file():
             title = source_path.stem
             audio_path = self.extract_audio(source_path)
+            duration = get_media_duration(source_path)
             return {
                 "title": title,
                 "video_path": source_path,
                 "audio_path": audio_path,
+                "duration": duration,
                 "is_local": True,
             }
 
-        # Handle YouTube download
         ffmpeg_exe = get_ffmpeg_bin()
         output_template = str(self.temp_dir / "%(title)s_%(id)s.%(ext)s")
 
@@ -401,13 +551,12 @@ class VideoDownloader:
                         logger.info(f"[download] {pct:.1f}% ({mb_down:.0f}MB / {mb_tot:.0f}MB) at {speed_str}")
                     else:
                         mb_down = downloaded / (1024 * 1024)
-                        mb_tot = total / (1024 * 1024) if total else 0
                         logger.info(f"[download] {mb_down:.1f}MB at {speed_str}")
             elif status == "finished":
-                logger.info("[download] Stream download complete. Merging streams...")
+                logger.info("[download] Video stream download finished. Merging media tracks...")
 
         ydl_opts = {
-            "format": f"bestvideo[height<={resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<={resolution}][ext=mp4]/best",
+            "format": f"bestvideo[height<={resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<={resolution}][ext=mp4]/bestvideo+bestaudio/best",
             "outtmpl": output_template,
             "merge_output_format": "mp4",
             "ffmpeg_location": ffmpeg_exe,
@@ -417,27 +566,202 @@ class VideoDownloader:
             "fragment_retries": 15,
             "http_chunk_size": 10485760,
             "continuedl": True,
+            "http_headers": {
+                "User-Agent": BROWSER_USER_AGENT,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
             "progress_hooks": [download_progress_hook],
             "quiet": True,
             "no_warnings": True,
         }
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(source, download=True)
-            title = info.get("title", "downloaded_video")
-            filename = ydl.prepare_filename(info)
-            video_file = Path(filename).with_suffix(".mp4")
-            if not video_file.exists():
-                video_file = Path(filename)
+        download_target_url = source
+        video_file: Optional[Path] = None
+        title = "video"
+        duration = 0.0
 
-        if not video_file.exists():
-            raise FileNotFoundError(f"Downloaded video file not found at: {video_file}")
+        # Attempt 1: yt-dlp download
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(download_target_url, download=True)
+                title = sanitize_filename(info.get("title", "downloaded_video"))
+                duration = float(info.get("duration") or 0.0)
+                filename = ydl.prepare_filename(info)
+                cand = Path(filename).with_suffix(".mp4")
+                if cand.exists():
+                    video_file = cand
+                elif Path(filename).exists():
+                    video_file = Path(filename)
+                else:
+                    matches = list(self.temp_dir.glob(f"{Path(filename).stem}*"))
+                    if matches:
+                        video_file = matches[0]
+        except Exception as ydl_err:
+            logger.warning(f"yt-dlp download failed on {download_target_url}: {ydl_err}. Initiating deep webpage / direct stream fallback...")
+
+            # Check if this is an arbitrary webpage containing an embedded video
+            html, final_url = fetch_webpage_html(download_target_url)
+            discovered_video = extract_embedded_video_url(html, final_url or download_target_url) if html else None
+
+            if discovered_video and discovered_video != download_target_url:
+                logger.info(f"Discovered embedded video stream in webpage: {discovered_video}")
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(discovered_video, download=True)
+                        title = sanitize_filename(info.get("title", "webpage_video"))
+                        duration = float(info.get("duration") or 0.0)
+                        filename = ydl.prepare_filename(info)
+                        cand = Path(filename).with_suffix(".mp4")
+                        if cand.exists():
+                            video_file = cand
+                        elif Path(filename).exists():
+                            video_file = Path(filename)
+                except Exception as ydl_inner_err:
+                    logger.warning(f"yt-dlp failed on discovered video: {ydl_inner_err}. Trying direct FFmpeg stream copy...")
+                    fallback_out = self.temp_dir / f"stream_{int(time.time())}.mp4"
+                    video_file = download_with_ffmpeg(discovered_video, fallback_out)
+                    title = "webpage_video"
+            else:
+                # Direct FFmpeg stream copy fallback on original URL
+                logger.info(f"Trying direct FFmpeg stream download on {download_target_url}...")
+                fallback_out = self.temp_dir / f"direct_{int(time.time())}.mp4"
+                video_file = download_with_ffmpeg(download_target_url, fallback_out)
+                title = sanitize_filename(Path(urllib.parse.urlparse(download_target_url).path).stem or "direct_video")
+
+        if not video_file or not video_file.exists():
+            raise FileNotFoundError(f"Could not download or extract video from: {source}")
+
+        if duration <= 0:
+            duration = get_media_duration(video_file)
 
         audio_path = self.extract_audio(video_file)
         return {
             "title": title,
             "video_path": video_file,
             "audio_path": audio_path,
-            "duration": info.get("duration", 0),
+            "duration": duration,
             "is_local": False,
+        }
+
+    def extract_preview_info(self, url: str) -> Dict[str, Any]:
+        """
+        Fast inspection of any link to determine platform, title, thumbnail, duration,
+        and playable stream URL for the iPhone 16 live mockup.
+        """
+        url = url.strip()
+        if not url:
+            return {"status": "empty", "platform": "none", "platform_label": ""}
+
+        # 1. YouTube check
+        yt_match = re.search(r'(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|live\/|watch\?.+&v=))([\w-]{11})', url)
+        if yt_match:
+            yt_id = yt_match.group(1)
+            return {
+                "status": "ok",
+                "platform": "youtube",
+                "platform_label": "YouTube",
+                "video_id": yt_id,
+                "thumbnail": f"https://img.youtube.com/vi/{yt_id}/maxresdefault.jpg",
+                "title": "YouTube Video",
+                "direct_video_url": None,
+            }
+
+        # 2. Direct video file check
+        parsed_path = urllib.parse.urlparse(url).path.lower()
+        if any(parsed_path.endswith(ext) for ext in [".mp4", ".webm", ".mov", ".m4v", ".m3u8", ".mpd", ".ogg"]):
+            stem = Path(parsed_path).stem.replace("_", " ").replace("-", " ").title()
+            return {
+                "status": "ok",
+                "platform": "direct",
+                "platform_label": "Direct Video",
+                "title": stem or "Direct Video Stream",
+                "direct_video_url": url,
+                "thumbnail": None,
+            }
+
+        # 3. Fast inspection with yt-dlp
+        try:
+            ydl_opts = {
+                "skip_download": True,
+                "quiet": True,
+                "no_warnings": True,
+                "socket_timeout": 8,
+                "http_headers": {"User-Agent": BROWSER_USER_AGENT},
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                extractor = (info.get("extractor_key") or "web").lower()
+                title = info.get("title") or "Video"
+                thumb = info.get("thumbnail")
+                duration = info.get("duration") or 0.0
+
+                label = "Web Video"
+                if "tiktok" in extractor:
+                    label = "TikTok"
+                elif "instagram" in extractor:
+                    label = "Instagram Reel"
+                elif "twitter" in extractor or "x" in extractor:
+                    label = "X / Twitter"
+                elif "vimeo" in extractor:
+                    label = "Vimeo"
+                elif "reddit" in extractor:
+                    label = "Reddit"
+                elif "facebook" in extractor:
+                    label = "Facebook"
+                elif "twitch" in extractor:
+                    label = "Twitch"
+
+                direct_url = None
+                formats = info.get("formats") or []
+                for f in reversed(formats):
+                    f_url = f.get("url")
+                    f_ext = (f.get("ext") or "").lower()
+                    vcodec = f.get("vcodec") or ""
+                    if f_url and f_ext in ["mp4", "webm"] and vcodec != "none" and "http" in f_url:
+                        direct_url = f_url
+                        break
+                if not direct_url and info.get("url") and any(ext in info.get("url") for ext in [".mp4", ".webm", ".m3u8"]):
+                    direct_url = info.get("url")
+
+                return {
+                    "status": "ok",
+                    "platform": extractor,
+                    "platform_label": label,
+                    "title": title,
+                    "thumbnail": thumb,
+                    "duration": duration,
+                    "direct_video_url": direct_url,
+                }
+        except Exception as e:
+            logger.debug(f"yt-dlp preview extraction skipped: {e}")
+
+        # 4. Arbitrary webpage inspection
+        html, final_url = fetch_webpage_html(url)
+        if html:
+            embedded_url = extract_embedded_video_url(html, final_url or url)
+            soup = bs4.BeautifulSoup(html, "html.parser")
+            page_title = soup.title.string.strip() if (soup.title and soup.title.string) else "Webpage Video"
+            og_img = None
+            meta_img = soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "og:image"})
+            if meta_img and meta_img.get("content"):
+                og_img = urllib.parse.urljoin(final_url or url, meta_img["content"])
+
+            if embedded_url:
+                return {
+                    "status": "ok",
+                    "platform": "webpage",
+                    "platform_label": "Webpage Video",
+                    "title": page_title,
+                    "thumbnail": og_img,
+                    "direct_video_url": embedded_url if any(ext in embedded_url for ext in [".mp4", ".webm", ".mov"]) else None,
+                }
+
+        return {
+            "status": "ok",
+            "platform": "link",
+            "platform_label": "Web Link",
+            "title": "Video Link",
+            "thumbnail": None,
+            "direct_video_url": None,
         }

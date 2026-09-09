@@ -276,10 +276,56 @@
       display: none;
       padding: 4px;
       border-radius: 4px;
+      z-index: 2;
     }
 
     .clear-btn:hover {
       color: var(--text);
+    }
+
+    .platform-badge {
+      position: absolute;
+      right: 44px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: #ffffff;
+      pointer-events: none;
+      display: none;
+      align-items: center;
+      gap: 5px;
+      z-index: 2;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .input-hint-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: -10px;
+      margin-bottom: 22px;
+      font-size: 11px;
+    }
+
+    .hint-label {
+      color: var(--text-subtle);
+      font-weight: 500;
+    }
+
+    .hint-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 4px;
+      padding: 2px 7px;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 500;
     }
 
     /* Upload Box */
@@ -1539,15 +1585,16 @@
       <!-- Left Column: Creation Form -->
       <div class="studio-left">
         <h1 class="studio-title">Create New Clip</h1>
-        <p class="studio-subtitle">Paste a YouTube link or upload a video — AI handles the rest.</p>
+        <p class="studio-subtitle">Paste any link that contains a video or upload a file — AI handles the rest.</p>
 
         <!-- Source Tabs -->
         <div class="tabs-row">
-          <button type="button" class="tab-btn active" id="tabYoutube" onclick="setSourceMode('youtube')">
-            <svg viewBox="0 0 24 24" fill="#ef4444">
-              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          <button type="button" class="tab-btn active" id="tabVideoLink" onclick="setSourceMode('url')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
-            YouTube URL
+            Video Link
           </button>
           <button type="button" class="tab-btn" id="tabUpload" onclick="setSourceMode('upload')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1559,26 +1606,39 @@
           </button>
         </div>
 
-        <!-- YouTube Input -->
-        <div class="input-wrapper" id="youtubeInputWrapper">
-          <span class="input-icon">
-            <svg viewBox="0 0 24 24" fill="#ef4444">
-              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        <!-- Video URL Input -->
+        <div class="input-wrapper" id="videoUrlInputWrapper">
+          <span class="input-icon" id="inputDynamicIcon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
             </svg>
           </span>
           <input 
             type="url" 
             id="videoSourceInput" 
             class="studio-input" 
-            placeholder="https://www.youtube.com/watch?v=..." 
+            placeholder="Paste any link containing a video (any website, YouTube, TikTok, Instagram, X, MP4...)" 
             autocomplete="off"
           />
+          <span id="platformIndicatorBadge" class="platform-badge"></span>
           <button type="button" class="clear-btn" id="clearBtn" onclick="clearInput()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"/>
               <line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
+        </div>
+
+        <!-- Supported Platforms Hint Row -->
+        <div class="input-hint-row" id="inputHintRow">
+          <span class="hint-label">Universal Support:</span>
+          <span class="hint-pill">Any Website</span>
+          <span class="hint-pill">YouTube</span>
+          <span class="hint-pill">TikTok</span>
+          <span class="hint-pill">Instagram</span>
+          <span class="hint-pill">X / Twitter</span>
+          <span class="hint-pill">Vimeo</span>
+          <span class="hint-pill">Direct MP4 / Streams</span>
         </div>
 
         <!-- Local Upload Box -->
@@ -1831,7 +1891,7 @@
                 </svg>
               </div>
               <div class="phone-empty-title">Live Video Preview</div>
-              <div class="phone-empty-sub">Paste a YouTube URL or upload a video to watch it run live here</div>
+              <div class="phone-empty-sub">Paste any link containing a video or upload a file to watch it run live here</div>
             </div>
 
             <!-- Play / Pause Flash Indicator -->
@@ -2061,6 +2121,12 @@
       const ytIframe = document.getElementById('phoneYoutubeIframe');
       const html5Video = document.getElementById('phoneVideoPlayer');
       const emptyState = document.getElementById('phoneEmptyState');
+      const badge = document.getElementById('platformIndicatorBadge');
+
+      if (badge) {
+        badge.style.display = 'none';
+        badge.innerText = '';
+      }
 
       if (ytIframe) ytIframe.src = '';
       if (ytWrap) ytWrap.style.display = 'none';
@@ -2069,7 +2135,49 @@
         html5Video.src = '';
         html5Video.style.display = 'none';
       }
-      if (emptyState) emptyState.style.display = 'flex';
+      if (emptyState) {
+        emptyState.style.display = 'flex';
+        emptyState.innerHTML = `
+          <div class="phone-empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+          </div>
+          <div class="phone-empty-title">Live Video Preview</div>
+          <div class="phone-empty-sub">Paste any link containing a video or upload a file to watch it run live here</div>
+        `;
+      }
+    }
+
+    function showPosterInPhone(thumbUrl, title) {
+      currentPhoneMediaType = 'poster';
+      const ytWrap = document.getElementById('phoneYoutubeWrap');
+      const ytIframe = document.getElementById('phoneYoutubeIframe');
+      const html5Video = document.getElementById('phoneVideoPlayer');
+      const emptyState = document.getElementById('phoneEmptyState');
+
+      if (ytIframe) ytIframe.src = '';
+      if (ytWrap) ytWrap.style.display = 'none';
+      if (html5Video) {
+        html5Video.pause();
+        html5Video.src = '';
+        html5Video.style.display = 'none';
+      }
+      if (emptyState) {
+        emptyState.style.display = 'flex';
+        emptyState.innerHTML = `
+          <div style="position:absolute; inset:0; background:url('${thumbUrl}') center/cover no-repeat; filter:brightness(0.65);"></div>
+          <div style="position:relative; z-index:2; text-align:center; padding:24px;">
+            <div class="phone-empty-icon" style="margin:0 auto 12px; background:rgba(0,0,0,0.65);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <polygon points="5 3 19 12 5 21 5 3" fill="currentColor"/>
+              </svg>
+            </div>
+            <div class="phone-empty-title" style="text-shadow:0 2px 8px rgba(0,0,0,0.9); font-size:15px;">${title || 'Video Stream Ready'}</div>
+            <div class="phone-empty-sub" style="color:rgba(255,255,255,0.85); text-shadow:0 1px 4px rgba(0,0,0,0.9);">Ready to generate viral clips</div>
+          </div>
+        `;
+      }
     }
 
     function sendYoutubeCommand(func, args = '') {
@@ -2165,10 +2273,7 @@
         if (input && !input.value) {
           input.value = savedSource;
           document.getElementById('clearBtn').style.display = 'block';
-          const videoId = extractYouTubeId(savedSource);
-          if (videoId) {
-            loadYouTubeInPhone(videoId);
-          }
+          input.dispatchEvent(new Event('input'));
         }
       }
 
@@ -2217,10 +2322,7 @@
         if (input) {
           input.value = taskData.source;
           document.getElementById('clearBtn').style.display = 'block';
-          const videoId = extractYouTubeId(taskData.source);
-          if (videoId) {
-            loadYouTubeInPhone(videoId);
-          }
+          input.dispatchEvent(new Event('input'));
         }
         localStorage.setItem('activeSource', taskData.source);
       }
@@ -2246,28 +2348,100 @@
 
     // Toggle Source Mode
     function setSourceMode(mode) {
-      activeSourceMode = mode;
-      document.getElementById('tabYoutube').classList.toggle('active', mode === 'youtube');
-      document.getElementById('tabUpload').classList.toggle('active', mode === 'upload');
+      activeSourceMode = (mode === 'youtube' || mode === 'url') ? 'url' : 'upload';
+      const tabUrl = document.getElementById('tabVideoLink') || document.getElementById('tabYoutube');
+      const tabUpload = document.getElementById('tabUpload');
+      if (tabUrl) tabUrl.classList.toggle('active', activeSourceMode === 'url');
+      if (tabUpload) tabUpload.classList.toggle('active', activeSourceMode === 'upload');
       
-      document.getElementById('youtubeInputWrapper').style.display = (mode === 'youtube') ? 'block' : 'none';
-      document.getElementById('uploadBox').style.display = (mode === 'upload') ? 'block' : 'none';
+      const inputWrap = document.getElementById('videoUrlInputWrapper') || document.getElementById('youtubeInputWrapper');
+      const hintRow = document.getElementById('inputHintRow');
+      const uploadBox = document.getElementById('uploadBox');
+      if (inputWrap) inputWrap.style.display = (activeSourceMode === 'url') ? 'block' : 'none';
+      if (hintRow) hintRow.style.display = (activeSourceMode === 'url') ? 'flex' : 'none';
+      if (uploadBox) uploadBox.style.display = (activeSourceMode === 'upload') ? 'block' : 'none';
     }
+
+    let previewDebounceTimer = null;
 
     // URL input listener for live running video in phone
     function setupUrlListener() {
       const input = document.getElementById('videoSourceInput');
       const clearBtn = document.getElementById('clearBtn');
+      const badge = document.getElementById('platformIndicatorBadge');
+
+      function updateBadge(label, color = '#ffffff') {
+        if (!badge) return;
+        if (!label) {
+          badge.style.display = 'none';
+          badge.innerText = '';
+        } else {
+          badge.style.display = 'inline-flex';
+          badge.innerText = label;
+          badge.style.color = color;
+        }
+      }
 
       function checkAndLoadUrl() {
         const val = input.value.trim();
         clearBtn.style.display = val ? 'block' : 'none';
-        const videoId = extractYouTubeId(val);
-        if (videoId) {
-          loadYouTubeInPhone(videoId);
-        } else if (!val) {
+
+        if (!val) {
+          updateBadge('');
           resetPhoneMedia();
+          return;
         }
+
+        // 1. Instant YouTube detection
+        const ytId = extractYouTubeId(val);
+        if (ytId) {
+          updateBadge('YouTube', '#ef4444');
+          loadYouTubeInPhone(ytId);
+          localStorage.setItem('activeSource', val);
+          return;
+        }
+
+        // 2. Instant direct video file detection (.mp4, .webm, .mov, .m4v, .m3u8, .ogg)
+        const cleanPath = val.split('?')[0].toLowerCase();
+        if (['.mp4', '.webm', '.mov', '.m4v', '.ogg', '.m3u8'].some(ext => cleanPath.endsWith(ext))) {
+          updateBadge('Direct Video', '#06b6d4');
+          const title = val.split('/').pop().split('?')[0].replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+          loadVideoInPhone(val, title);
+          localStorage.setItem('activeSource', val);
+          return;
+        }
+
+        // 3. Universal inspection for any website (TikTok, Instagram, Twitter, Vimeo, news, blogs, etc.)
+        updateBadge('Detecting...', '#f59e0b');
+        if (previewDebounceTimer) clearTimeout(previewDebounceTimer);
+        previewDebounceTimer = setTimeout(async () => {
+          try {
+            const res = await fetch(`/api/preview?url=${encodeURIComponent(val)}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            if (data.platform_label) {
+              updateBadge(data.platform_label, '#34d399');
+            }
+
+            if (data.title) {
+              const captionEl = document.querySelector('.creator-caption');
+              if (captionEl) captionEl.innerText = data.title;
+            }
+
+            if (data.video_id) {
+              loadYouTubeInPhone(data.video_id);
+            } else if (data.direct_video_url) {
+              loadVideoInPhone(data.direct_video_url, data.title);
+            } else if (data.thumbnail) {
+              showPosterInPhone(data.thumbnail, data.title);
+            }
+            localStorage.setItem('activeSource', val);
+          } catch (err) {
+            console.log('Preview error:', err);
+            updateBadge('Web Link', '#a1a1aa');
+          }
+        }, 350);
       }
 
       input.addEventListener('input', checkAndLoadUrl);
@@ -2354,12 +2528,12 @@
 
     // Start Generation Job
     async function startGeneration() {
-      const source = activeSourceMode === 'youtube' 
+      const source = (activeSourceMode === 'url' || activeSourceMode === 'youtube') 
         ? document.getElementById('videoSourceInput').value.trim() 
         : (document.getElementById('fileUploadInput').files[0]?.name || '');
 
       if (!source) {
-        showToast('Please enter a YouTube link or choose a video file.');
+        showToast('Please enter a video link or choose a video file.');
         return;
       }
 
