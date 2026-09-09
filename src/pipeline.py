@@ -116,6 +116,21 @@ class ShortsPipeline:
                         is_precut=is_precut,
                     )
 
+                    meta_data = {
+                        "title": h.title,
+                        "hook": h.hook,
+                        "score": h.score,
+                        "start": h.start,
+                        "end": h.end,
+                        "reason": h.reason,
+                    }
+                    meta_path = out_file.with_suffix(".json")
+                    try:
+                        with open(meta_path, "w", encoding="utf-8") as mf:
+                            json.dump(meta_data, mf, indent=2)
+                    except Exception as me:
+                        logger.warning(f"Could not save clip metadata: {me}")
+
                     rendered_files.append({
                         "title": h.title,
                         "hook": h.hook,
