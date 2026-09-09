@@ -8,22 +8,23 @@ An open-source pipeline to extract high-engagement short vertical videos from lo
 
 ## Features
 
-- YouTube and Local Media Ingestion: Download YouTube links directly via yt-dlp or supply local MP4 files.
-- Timestamped Speech Recognition: Local faster-whisper model runs speech-to-text with word-level timestamps (GPU CUDA & CPU fallback).
+- Fast Range Ingestion: Extracts YouTube timestamped captions in under 1 second without downloading media, detects viral moments first, and surgically downloads only the required 30-40 second video clips using HTTP byte ranges.
+- YouTube and Local Media Ingestion: Process online YouTube links directly via yt-dlp or supply local MP4 files with automatic format detection.
+- Timestamped Speech Recognition: Local faster-whisper model runs speech-to-text with word-level timestamps when processing local video files or videos without captions.
 - AI Highlight Selection: LLM analyzes transcripts to detect punchy opening hooks, high-energy discussions, and self-contained insights.
 - Face-Aware Smart Auto-Framing: Employs OpenCV facial tracking to center the active speaker automatically in 9:16 vertical mode, with blurred background and center crop options.
 - Dynamic Karaoke Subtitles: Generates and burns animated word-by-word highlighted captions (ASS format) with high-contrast outlines and customizable styles.
-- Hook Title Overlay Banner: Automatically burns a bold, high-retention hook title in the top safe zone during the first 3.5 seconds.
+- Hook Title Overlay Banner: Optional high-retention hook title banner in the top safe zone during the first 3.5 seconds.
 - Hardware Acceleration: Fully supports NVIDIA CUDA for Whisper and NVENC (`h264_nvenc`) for ultra-fast GPU rendering.
-- Dual Interface: Use the CLI for automation and scripts, or run the web UI for interactive job queueing and video playback.
+- Glassmorphic Studio Interface: Modern SupoClip-style dark studio dashboard with a live 4-step pipeline progress tracker, 9:16 vertical cards, virality score badges, custom video player, and telemetry console.
 
 ## Architecture
 
-1. Ingestion: yt-dlp downloads the source video and extracts a 16kHz mono WAV track.
-2. Transcription: faster-whisper outputs timestamped segments and words.
-3. Analysis: The chosen LLM (Gemini 2.5 Flash or OpenAI GPT-4o-mini) ranks candidates from 1 to 100 based on hook strength, emotional impact, and conciseness.
-4. Video Rendering: FFmpeg cuts the selected time window, scales to 9:16 vertical (1080x1920), and applies styled subtitle captions.
-5. Storage: Output videos are saved to the output directory.
+1. Fast Ingestion: For YouTube URLs, fetches timestamped VTT caption tracks in seconds without video media.
+2. AI Highlight Ranking: Gemini 2.5 Flash or OpenAI GPT-4o-mini identifies top viral clips and assigns virality scores (1-100).
+3. Section Download: yt-dlp downloads only the selected timestamp ranges via byte-range requests.
+4. Smart Auto-Framing: OpenCV detects face coordinates across frames and calculates the optimal crop offset.
+5. Karaoke Video Rendering: FFmpeg cuts, scales to 9:16 vertical (1080x1920), burns animated karaoke subtitles, and exports with NVENC acceleration.
 
 ## Prerequisites
 

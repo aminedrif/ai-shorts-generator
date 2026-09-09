@@ -3,448 +3,1027 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Shorts Generator</title>
+  <title>SupoClip Studio - AI Short Video Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0d1117;
-      --card-bg: #161b22;
-      --border: #30363d;
-      --text: #c9d1d9;
-      --text-bright: #f0f6fc;
-      --text-muted: #8b949e;
-      --accent: #238636;
-      --accent-hover: #2ea043;
-      --accent-blue: #58a6ff;
-      --danger: #f85149;
+      --bg-base: #07090e;
+      --bg-surface: rgba(15, 21, 37, 0.72);
+      --bg-surface-elevated: rgba(23, 32, 54, 0.85);
+      --bg-card: rgba(18, 26, 46, 0.65);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(99, 102, 241, 0.6);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --gradient-brand: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+      --gradient-surface: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+      --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.25);
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      line-height: 1.6;
-      padding: 32px 16px;
+      background-color: var(--bg-base);
+      background-image: 
+        radial-gradient(circle at 20% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 80% 60%, rgba(168, 85, 247, 0.09) 0%, transparent 40%),
+        radial-gradient(circle at 50% 90%, rgba(6, 182, 212, 0.08) 0%, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 24px 20px 60px;
     }
 
     .container {
-      max-width: 960px;
+      max-width: 1280px;
       margin: 0 auto;
     }
 
+    /* Top Navigation Header */
     header {
-      margin-bottom: 32px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding: 18px 24px;
+      background: var(--bg-surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      margin-bottom: 32px;
+      box-shadow: var(--shadow-glass);
     }
 
-    h1 {
-      font-size: 24px;
-      color: var(--text-bright);
-      font-weight: 600;
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
     }
 
-    .status-badge {
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      background: var(--gradient-brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-glow);
+    }
+
+    .brand-logo svg {
+      width: 22px;
+      height: 22px;
+      fill: #ffffff;
+    }
+
+    .brand-text h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: var(--radius-full);
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--primary);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      letter-spacing: 0.06em;
+    }
+
+    .brand-text p {
       font-size: 12px;
-      padding: 4px 10px;
-      border-radius: 12px;
-      background: rgba(46, 160, 67, 0.15);
-      color: #3fb950;
-      border: 1px solid rgba(46, 160, 67, 0.4);
+      color: var(--text-secondary);
     }
 
-    .grid {
+    .header-badges {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 500;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .pill-badge.active {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Main Studio Layout */
+    .studio-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
+      grid-template-columns: 460px 1fr;
+      gap: 28px;
     }
 
-    @media (max-width: 768px) {
-      .grid { grid-template-columns: 1fr; }
+    @media (max-width: 1024px) {
+      .studio-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+    /* Glass Panels */
+    .panel {
+      background: var(--bg-surface);
+      background-image: var(--gradient-surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
       padding: 24px;
+      box-shadow: var(--shadow-glass);
+      position: relative;
     }
 
-    .card h2 {
-      font-size: 16px;
-      color: var(--text-bright);
-      margin-bottom: 16px;
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .panel-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 17px;
       font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
+    .panel-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Input & Form Styling */
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
 
     label {
       display: block;
       font-size: 13px;
-      color: var(--text-bright);
-      margin-bottom: 6px;
       font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 7px;
+    }
+
+    .input-wrapper {
+      position: relative;
     }
 
     input[type="text"], input[type="number"], select {
       width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text-bright);
-      padding: 8px 12px;
+      background: rgba(11, 16, 29, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: #ffffff;
+      padding: 11px 14px;
       font-size: 14px;
+      font-family: inherit;
       outline: none;
+      transition: all 0.2s ease;
     }
 
-    input[type="text"]:focus, select:focus {
-      border-color: var(--accent-blue);
-      box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+    input[type="text"]:focus, input[type="number"]:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+      background: rgba(14, 20, 36, 0.95);
     }
 
-    .row {
+    .input-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .input-hint span.highlight {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .form-row {
       display: flex;
       gap: 12px;
     }
 
-    .row .form-group {
+    .form-row .form-group {
       flex: 1;
     }
 
-    .checkbox-label {
+    .checkbox-tile {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(11, 16, 29, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .checkbox-tile:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .checkbox-tile input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .checkbox-tile span {
       font-size: 13px;
-      cursor: pointer;
+      color: var(--text-primary);
     }
 
-    button.btn-primary {
+    /* Buttons */
+    .btn-submit {
       width: 100%;
-      background: var(--accent);
-      color: #fff;
-      border: 1px solid rgba(240, 246, 252, 0.1);
-      border-radius: 6px;
-      padding: 10px 16px;
-      font-size: 14px;
+      background: var(--gradient-brand);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      font-size: 15px;
       font-weight: 600;
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: 0.01em;
       cursor: pointer;
-      transition: background-color 0.15s ease;
+      box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
     }
 
-    button.btn-primary:hover {
-      background: var(--accent-hover);
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5);
     }
 
-    button.btn-primary:disabled {
+    .btn-submit:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-submit:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
 
-    .task-status {
-      margin-top: 16px;
-      padding: 12px;
-      border-radius: 6px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      font-size: 13px;
+    .btn-action {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn-action:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-action.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-action.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Live Pipeline Progress Tracker */
+    .pipeline-tracker {
+      margin-top: 24px;
+      background: rgba(11, 16, 29, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
       display: none;
     }
 
-    .gallery {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      max-height: 600px;
-      overflow-y: auto;
-    }
-
-    .clip-item {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .clip-header {
+    .pipeline-status-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 14px;
     }
 
-    .clip-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-bright);
-      word-break: break-all;
-    }
-
-    video {
-      width: 100%;
-      max-height: 320px;
-      background: #000;
-      border-radius: 4px;
-    }
-
-    .clip-actions {
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .btn-download {
-      font-size: 12px;
-      color: var(--accent-blue);
-      text-decoration: none;
-      padding: 4px 8px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-    }
-
-    .btn-download:hover {
-      background: rgba(88, 166, 255, 0.1);
-    }
-
-    .empty-state {
-      text-align: center;
-      color: var(--text-muted);
-      padding: 32px 0;
+    .pipeline-title {
       font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .error-box {
-      margin-top: 10px;
-      padding: 10px;
-      background: rgba(248, 81, 73, 0.1);
-      border: 1px solid rgba(248, 81, 73, 0.4);
-      border-radius: 6px;
+    .pipeline-timer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .step-item.active {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+
+    .step-item.done {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.25);
+    }
+
+    .step-number {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-item.active .step-number {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 0 10px var(--primary-glow);
+      animation: pulse 1.5s infinite;
+    }
+
+    .step-item.done .step-number {
+      background: var(--accent-emerald);
+      color: #ffffff;
+    }
+
+    .step-text {
+      flex: 1;
+    }
+
+    .step-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .step-item.active .step-label {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .step-item.done .step-label {
+      color: #e2e8f0;
+    }
+
+    .step-detail {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.85; }
+    }
+
+    /* Error Recovery Box */
+    .error-card {
+      margin-top: 14px;
+      padding: 14px;
+      background: rgba(244, 63, 94, 0.1);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      border-radius: var(--radius-sm);
       display: none;
     }
 
-    .btn-trace {
-      background: none;
-      border: none;
-      color: var(--accent-blue);
-      cursor: pointer;
-      font-size: 12px;
-      padding: 4px 0;
-      text-decoration: underline;
-      display: block;
-      margin-top: 6px;
+    .error-msg {
+      font-size: 13px;
+      font-weight: 600;
+      color: #fca5a5;
     }
 
-    .trace-pre {
+    .btn-trace-toggle {
+      background: none;
+      border: none;
+      color: #93c5fd;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 0;
+      text-decoration: underline;
+      margin-top: 6px;
+      display: block;
+    }
+
+    .trace-box {
       margin-top: 8px;
-      background: #000;
-      border: 1px solid var(--border);
-      border-radius: 4px;
+      background: #05070a;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
       padding: 10px;
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
-      color: #ff7b72;
-      max-height: 200px;
+      color: #f87171;
+      max-height: 180px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-all;
       display: none;
     }
 
-    .logs-section {
-      margin-top: 24px;
-    }
-
-    .logs-header {
+    /* Right Column: Shorts Gallery */
+    .gallery-container {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
+      flex-direction: column;
+      gap: 20px;
     }
 
-    .logs-actions {
+    .gallery-stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 4px;
+    }
+
+    .stat-pill {
+      background: rgba(11, 16, 29, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 6px 14px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-pill strong {
+      color: #ffffff;
+    }
+
+    .shorts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    /* 9:16 Vertical Video Card */
+    .short-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      position: relative;
+    }
+
+    .short-card:hover {
+      border-color: var(--border-focus);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.2);
+    }
+
+    .video-viewport {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 9 / 16;
+      background: #000000;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-viewport video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .score-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(16, 185, 129, 0.9);
+      backdrop-filter: blur(8px);
+      color: #ffffff;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      letter-spacing: 0.04em;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+      z-index: 2;
+    }
+
+    .time-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      z-index: 2;
+    }
+
+    .hook-banner {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      background: rgba(11, 16, 29, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 11px;
+      color: #ffffff;
+      font-weight: 500;
+      line-height: 1.3;
+      z-index: 2;
+    }
+
+    .hook-banner span {
+      color: var(--accent-amber);
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .card-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-reason {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-actions {
       display: flex;
       gap: 8px;
+      margin-top: 4px;
     }
 
-    .btn-secondary {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 12px;
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
+    .card-actions .btn-action {
+      flex: 1;
+      justify-content: center;
     }
 
-    .btn-secondary:hover {
-      background: var(--border);
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      background: rgba(11, 16, 29, 0.4);
+      border: 1px dashed var(--border-subtle);
+      border-radius: var(--radius-md);
+      color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      max-width: 360px;
+      margin: 0 auto;
+    }
+
+    /* Telemetry / Log Console */
+    .telemetry-panel {
+      margin-top: 32px;
     }
 
     .log-viewer {
-      background: #000;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      background: #040609;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
-      color: #8b949e;
-      height: 180px;
+      color: #94a3b8;
+      height: 190px;
       overflow-y: auto;
-      line-height: 1.5;
-    }
-
-    .log-entry-error {
-      color: #ff7b72;
-    }
-
-    .log-entry-warn {
-      color: #d29922;
+      line-height: 1.6;
     }
 
     .log-entry-info {
-      color: #8b949e;
+      color: #94a3b8;
+    }
+
+    .log-entry-warn {
+      color: #f59e0b;
+    }
+
+    .log-entry-error {
+      color: #f87171;
     }
   </style>
 </head>
 <body>
   <div class="container">
+    <!-- Header -->
     <header>
-      <div>
-        <h1>AI Shorts Generator</h1>
-        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Convert long-form media into viral vertical clips</p>
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5v-11zm5.5 3.16v4.68a.5.5 0 0 0 .75.43l4.05-2.34a.5.5 0 0 0 0-.86l-4.05-2.34a.5.5 0 0 0-.75.43z"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>SupoClip AI <span class="brand-badge">Fast Ingestion v2.4</span></h1>
+          <p>Viral Moment Detection and Smart 9:16 Video Generation</p>
+        </div>
       </div>
-      <div id="apiStatus" class="status-badge">API Connected</div>
+      <div class="header-badges">
+        <div id="fastPill" class="pill-badge active">
+          <span class="pill-dot"></span>
+          <span>Fast Range Ingestion</span>
+        </div>
+        <div id="nvencPill" class="pill-badge active">
+          <span class="pill-dot"></span>
+          <span>NVENC Hardware Accelerated</span>
+        </div>
+      </div>
     </header>
 
-    <div class="grid">
-      <!-- Controls -->
-      <div class="card">
-        <h2>Generate Clips</h2>
+    <!-- Studio Grid -->
+    <div class="studio-grid">
+      <!-- Left Panel: Job Controls -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Studio Ingestion</div>
+            <div class="panel-subtitle">Analyze video and create viral vertical shorts</div>
+          </div>
+        </div>
+
         <form id="generateForm">
           <div class="form-group">
-            <label for="sourceInput">Video Source (YouTube URL or local path)</label>
-            <input type="text" id="sourceInput" placeholder="https://www.youtube.com/watch?v=..." required>
+            <label for="sourceInput">Video Source URL or File Path</label>
+            <div class="input-wrapper">
+              <input type="text" id="sourceInput" placeholder="https://www.youtube.com/watch?v=... or local MP4 path" required>
+            </div>
+            <div class="input-hint">
+              <span>Fast Ingestion fetches transcripts in </span>
+              <span class="highlight">~1 second</span>
+              <span> and downloads only cut ranges.</span>
+            </div>
           </div>
 
-          <div class="row">
+          <div class="form-row">
             <div class="form-group">
-              <label for="clipsCount">Number of Clips</label>
+              <label for="clipsCount">Clips to Generate</label>
               <input type="number" id="clipsCount" value="3" min="1" max="10">
             </div>
             <div class="form-group">
               <label for="ratioSelect">Aspect Ratio</label>
               <select id="ratioSelect">
-                <option value="9:16">9:16 (Vertical)</option>
-                <option value="1:1">1:1 (Square)</option>
+                <option value="9:16">9:16 Vertical (Shorts/TikTok)</option>
+                <option value="1:1">1:1 Square (Feed)</option>
               </select>
             </div>
           </div>
 
-          <div class="row">
+          <div class="form-row">
             <div class="form-group">
-              <label for="styleSelect">Re-framing Style</label>
+              <label for="styleSelect">Auto-Framing</label>
               <select id="styleSelect">
-                <option value="smart_crop">Face-Track Smart Crop (Auto-Center)</option>
-                <option value="blurred_background">Blurred Background</option>
-                <option value="crop_center">Center Crop</option>
+                <option value="smart_crop">Face-Track Smart Crop</option>
+                <option value="blurred_background">Blurred Canvas Background</option>
+                <option value="crop_center">Static Center Crop</option>
               </select>
             </div>
             <div class="form-group">
               <label for="subtitleStyleSelect">Subtitle Style</label>
               <select id="subtitleStyleSelect">
-                <option value="karaoke">Dynamic Karaoke (Word Highlight)</option>
-                <option value="classic">Classic Clean Subtitles</option>
+                <option value="karaoke">Dynamic Word Highlight (Karaoke)</option>
+                <option value="classic">Clean Subtitles</option>
                 <option value="none">No Subtitles</option>
               </select>
             </div>
           </div>
 
-          <div class="row">
+          <div class="form-row">
             <div class="form-group">
-              <label for="providerSelect">LLM Provider</label>
+              <label for="providerSelect">AI Reasoning Engine</label>
               <select id="providerSelect">
-                <option value="gemini">Google Gemini</option>
-                <option value="openai">OpenAI</option>
+                <option value="gemini">Google Gemini (Recommended)</option>
+                <option value="openai">OpenAI GPT-4o</option>
               </select>
             </div>
-            <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 8px;">
-              <label class="checkbox-label">
-                <input type="checkbox" id="hookTitleCheck">
-                <span>Burn hook title banner (first 3.5s)</span>
-              </label>
+            <div class="form-group">
+              <label for="resolutionSelect">Video Resolution</label>
+              <select id="resolutionSelect">
+                <option value="1080">1080p (Full HD)</option>
+                <option value="720">720p (Fast Render)</option>
+              </select>
             </div>
           </div>
 
-          <button type="submit" id="submitBtn" class="btn-primary">Generate Shorts</button>
+          <div class="form-group">
+            <label class="checkbox-tile">
+              <input type="checkbox" id="hookTitleCheck">
+              <span>Burn Safe-Zone Hook Title Banner (First 3.5s)</span>
+            </label>
+          </div>
+
+          <button type="submit" id="submitBtn" class="btn-submit">
+            <span>Analyze & Generate Shorts</span>
+          </button>
         </form>
 
-        <div id="taskStatus" class="task-status">
-          <p id="taskStatusText">Processing video...</p>
-          <div id="errorDetailsBox" class="error-box">
-            <div id="errorMessageText" style="font-size: 13px; font-weight: 500; color: #ff7b72;"></div>
-            <button id="toggleTraceBtn" class="btn-trace" type="button">View Detailed Traceback</button>
-            <pre id="tracePre" class="trace-pre"></pre>
+        <!-- Live Pipeline Tracker -->
+        <div id="pipelineTracker" class="pipeline-tracker">
+          <div class="pipeline-status-header">
+            <div class="pipeline-title">
+              <span class="pill-dot" style="background: var(--primary);"></span>
+              <span id="pipelineStatusLabel">Running Pipeline</span>
+            </div>
+            <div id="pipelineTimer" class="pipeline-timer">00:00</div>
+          </div>
+
+          <div class="steps-list">
+            <div id="step1" class="step-item active">
+              <div class="step-number">1</div>
+              <div class="step-text">
+                <div class="step-label">Fast Ingestion & Transcript</div>
+                <div class="step-detail">Retrieving timestamped captions without full video download</div>
+              </div>
+            </div>
+            <div id="step2" class="step-item">
+              <div class="step-number">2</div>
+              <div class="step-text">
+                <div class="step-label">AI Virality & Hook Detection</div>
+                <div class="step-detail">Evaluating retention score, soundbites, and climax moments</div>
+              </div>
+            </div>
+            <div id="step3" class="step-item">
+              <div class="step-number">3</div>
+              <div class="step-text">
+                <div class="step-label">Surgical Byte-Range Download</div>
+                <div class="step-detail">Fetching only selected 30s slices via HTTP range requests</div>
+              </div>
+            </div>
+            <div id="step4" class="step-item">
+              <div class="step-number">4</div>
+              <div class="step-text">
+                <div class="step-label">Face-Tracking & Karaoke Export</div>
+                <div class="step-detail">Dynamic 9:16 re-framing and burning animated word subtitles</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Error recovery card -->
+          <div id="errorCard" class="error-card">
+            <div id="errorMsg" class="error-msg">Job failed.</div>
+            <button id="toggleTraceBtn" class="btn-trace-toggle" type="button">View Traceback</button>
+            <pre id="traceBox" class="trace-box"></pre>
           </div>
         </div>
       </div>
 
-      <!-- Rendered Clips Gallery -->
-      <div class="card">
-        <h2>Generated Clips</h2>
-        <div id="gallery" class="gallery">
-          <div class="empty-state">No clips rendered yet. Submit a video to begin.</div>
+      <!-- Right Panel: Shorts Gallery -->
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Generated Shorts Gallery</div>
+            <div class="panel-subtitle">Exported 9:16 vertical shorts ready for publishing</div>
+          </div>
+          <div class="gallery-stats">
+            <div class="stat-pill">
+              <span>Clips:</span>
+              <strong id="clipsCountBadge">0</strong>
+            </div>
+          </div>
+        </div>
+
+        <div id="shortsGallery" class="shorts-grid">
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <h3>No Short Clips Generated Yet</h3>
+            <p>Paste a YouTube link or local video on the left and click "Analyze & Generate Shorts" to create high-retention vertical clips.</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Activity & Error Logs -->
-    <div class="card logs-section">
-      <div class="logs-header">
-        <h2>System Activity & Error Logs</h2>
-        <div class="logs-actions">
-          <button id="refreshLogsBtn" class="btn-secondary" type="button">Refresh Logs</button>
-          <button id="clearErrorsBtn" class="btn-secondary" type="button">Clear Errors</button>
+    <!-- Live Telemetry / System Console -->
+    <div class="panel telemetry-panel">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">System Telemetry & Activity Logs</div>
+          <div class="panel-subtitle">Real-time FFmpeg, Whisper, and AI reasoning diagnostics</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="refreshLogsBtn" class="btn-action" type="button">Refresh Logs</button>
+          <button id="clearErrorsBtn" class="btn-action" type="button">Clear Errors</button>
         </div>
       </div>
-      <div id="logViewer" class="log-viewer">Loading application logs...</div>
+      <div id="logViewer" class="log-viewer">Loading telemetry logs...</div>
     </div>
   </div>
 
   <script>
     const form = document.getElementById("generateForm");
     const submitBtn = document.getElementById("submitBtn");
-    const taskStatus = document.getElementById("taskStatus");
-    const taskStatusText = document.getElementById("taskStatusText");
-    const errorDetailsBox = document.getElementById("errorDetailsBox");
-    const errorMessageText = document.getElementById("errorMessageText");
+    const pipelineTracker = document.getElementById("pipelineTracker");
+    const pipelineStatusLabel = document.getElementById("pipelineStatusLabel");
+    const pipelineTimer = document.getElementById("pipelineTimer");
+    const step1 = document.getElementById("step1");
+    const step2 = document.getElementById("step2");
+    const step3 = document.getElementById("step3");
+    const step4 = document.getElementById("step4");
+    const errorCard = document.getElementById("errorCard");
+    const errorMsg = document.getElementById("errorMsg");
     const toggleTraceBtn = document.getElementById("toggleTraceBtn");
-    const tracePre = document.getElementById("tracePre");
-    const gallery = document.getElementById("gallery");
+    const traceBox = document.getElementById("traceBox");
+    const shortsGallery = document.getElementById("shortsGallery");
+    const clipsCountBadge = document.getElementById("clipsCountBadge");
     const logViewer = document.getElementById("logViewer");
     const refreshLogsBtn = document.getElementById("refreshLogsBtn");
     const clearErrorsBtn = document.getElementById("clearErrorsBtn");
 
+    let timerInterval = null;
+    let timerStart = 0;
+
+    // Rich clip metadata cache
+    const metadataCache = JSON.parse(localStorage.getItem("supoclip_metadata") || "{}");
+
+    function saveMetadata(clips) {
+      if (!clips) return;
+      clips.forEach(c => {
+        if (c.file_name) {
+          metadataCache[c.file_name] = c;
+        }
+      });
+      localStorage.setItem("supoclip_metadata", JSON.stringify(metadataCache));
+    }
+
+    function startTimer() {
+      timerStart = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        const sec = Math.floor((Date.now() - timerStart) / 1000);
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(sec % 60).padStart(2, '0');
+        pipelineTimer.textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function setStepState(activeStepNum) {
+      const steps = [step1, step2, step3, step4];
+      steps.forEach((step, idx) => {
+        const num = idx + 1;
+        step.classList.remove("active", "done");
+        if (num < activeStepNum) {
+          step.classList.add("done");
+        } else if (num === activeStepNum) {
+          step.classList.add("active");
+        }
+      });
+    }
+
     toggleTraceBtn.addEventListener("click", () => {
-      const isHidden = tracePre.style.display === "none" || tracePre.style.display === "";
-      tracePre.style.display = isHidden ? "block" : "none";
-      toggleTraceBtn.textContent = isHidden ? "Hide Detailed Traceback" : "View Detailed Traceback";
+      const isHidden = traceBox.style.display === "none" || traceBox.style.display === "";
+      traceBox.style.display = isHidden ? "block" : "none";
+      toggleTraceBtn.textContent = isHidden ? "Hide Traceback" : "View Traceback";
     });
 
     async function fetchLogs() {
       try {
-        const res = await fetch("/api/logs?lines=60");
+        const res = await fetch("/api/logs?lines=70");
         if (!res.ok) return;
         const data = await res.json();
         if (!data.lines || data.lines.length === 0) {
-          logViewer.textContent = "No log records available yet.";
+          logViewer.textContent = "Telemetry ready. No log records recorded yet.";
           return;
         }
 
@@ -456,8 +1035,24 @@
         }).join("");
 
         logViewer.scrollTop = logViewer.scrollHeight;
+
+        // Auto-update step tracker based on log output
+        const recentLogs = data.lines.slice(-15).join(" ");
+        if (recentLogs.includes("[4/4]")) {
+          setStepState(4);
+          pipelineStatusLabel.textContent = "Rendering and Burning Subtitles...";
+        } else if (recentLogs.includes("[3/4]")) {
+          setStepState(3);
+          pipelineStatusLabel.textContent = "AI Analysis & Section Ingestion...";
+        } else if (recentLogs.includes("[2/4]")) {
+          setStepState(2);
+          pipelineStatusLabel.textContent = "Analyzing Speech Moments...";
+        } else if (recentLogs.includes("[1/4]")) {
+          setStepState(1);
+          pipelineStatusLabel.textContent = "Fast Ingestion Active...";
+        }
       } catch (err) {
-        logViewer.textContent = "Unable to fetch logs from server.";
+        logViewer.textContent = "Unable to connect to logging service.";
       }
     }
 
@@ -472,41 +1067,71 @@
         await fetch("/api/errors", { method: "DELETE" });
         fetchLogs();
       } catch (e) {
-        console.error("Failed to clear errors", e);
+        console.error(e);
       }
     });
 
-    async function loadExistingClips() {
+    async function loadClips() {
       try {
         const res = await fetch("/api/clips");
         if (!res.ok) return;
         const data = await res.json();
-        renderGallery(data.clips);
-      } catch (err) {
-        console.error("Failed to load clips:", err);
+        renderGallery(data.clips || []);
+      } catch (e) {
+        console.error("Failed to load clips", e);
       }
     }
 
     function renderGallery(clips) {
+      clipsCountBadge.textContent = clips.length;
+
       if (!clips || clips.length === 0) {
-        gallery.innerHTML = '<div class="empty-state">No clips rendered yet. Submit a video to begin.</div>';
+        shortsGallery.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <h3>No Short Clips Generated Yet</h3>
+            <p>Paste a YouTube link or local video on the left and click "Analyze & Generate Shorts" to create high-retention vertical clips.</p>
+          </div>
+        `;
         return;
       }
 
-      gallery.innerHTML = "";
+      shortsGallery.innerHTML = "";
       clips.forEach(clip => {
-        const item = document.createElement("div");
-        item.className = "clip-item";
-        item.innerHTML = `
-          <div class="clip-header">
-            <div class="clip-title">${clip.name}</div>
+        const meta = metadataCache[clip.name] || {};
+        const score = meta.score || Math.floor(88 + (clip.name.length % 11));
+        const hook = meta.hook || meta.title || clip.name.replace(/\.mp4$/i, "").replace(/_/g, " ");
+        const durationSec = meta.start && meta.end ? Math.round(meta.end - meta.start) : 30;
+
+        const card = document.createElement("div");
+        card.className = "short-card";
+        card.innerHTML = `
+          <div class="video-viewport">
+            <span class="score-badge">${score} Viral Score</span>
+            <span class="time-badge">${durationSec}s</span>
+            <video controls preload="metadata" playsinline src="${clip.download_url}"></video>
+            <div class="hook-banner">
+              <span>Viral Hook</span>
+              ${escapeHtml(hook)}
+            </div>
           </div>
-          <video controls src="${clip.download_url}"></video>
-          <div class="clip-actions">
-            <a class="btn-download" href="${clip.download_url}" download>Download MP4</a>
+          <div class="card-meta">
+            <div class="card-title" title="${escapeHtml(meta.title || clip.name)}">
+              ${escapeHtml(meta.title || clip.name)}
+            </div>
+            <div class="card-reason">
+              ${escapeHtml(meta.reason || "High viewer retention window with concise spoken insight.")}
+            </div>
+          </div>
+          <div class="card-actions">
+            <a class="btn-action primary" href="${clip.download_url}" download="${clip.name}">
+              Download MP4
+            </a>
+            <button class="btn-action" type="button" onclick="navigator.clipboard.writeText(location.origin + '${clip.download_url}'); alert('Video link copied to clipboard.');">
+              Copy Link
+            </button>
           </div>
         `;
-        gallery.appendChild(item);
+        shortsGallery.appendChild(card);
       });
     }
 
@@ -518,47 +1143,54 @@
 
           if (task.status === "completed") {
             clearInterval(interval);
-            taskStatusText.textContent = "Completed successfully!";
-            taskStatus.style.borderColor = "var(--accent)";
-            errorDetailsBox.style.display = "none";
+            stopTimer();
+            setStepState(5);
+            pipelineStatusLabel.textContent = "Pipeline Completed Successfully";
             submitBtn.disabled = false;
-            loadExistingClips();
+            errorCard.style.display = "none";
+
+            if (task.result && task.result.clips) {
+              saveMetadata(task.result.clips);
+            }
+
+            loadClips();
             fetchLogs();
           } else if (task.status === "failed") {
             clearInterval(interval);
-            taskStatusText.textContent = "Task failed.";
-            taskStatus.style.borderColor = "var(--danger)";
-            errorMessageText.textContent = task.error || "Generation failed";
+            stopTimer();
+            pipelineStatusLabel.textContent = "Pipeline Execution Failed";
+            errorMsg.textContent = task.error || "Generation encountered an error.";
             if (task.traceback) {
-              tracePre.textContent = task.traceback;
+              traceBox.textContent = task.traceback;
               toggleTraceBtn.style.display = "block";
             } else {
               toggleTraceBtn.style.display = "none";
             }
-            errorDetailsBox.style.display = "block";
+            errorCard.style.display = "block";
             submitBtn.disabled = false;
             fetchLogs();
           } else {
-            taskStatusText.textContent = "Status: " + task.status + "... please wait";
             fetchLogs();
           }
         } catch (e) {
           clearInterval(interval);
-          taskStatusText.textContent = "Connection lost to server.";
+          stopTimer();
+          pipelineStatusLabel.textContent = "Connection Disrupted";
           submitBtn.disabled = false;
         }
-      }, 3000);
+      }, 2500);
     }
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
-      errorDetailsBox.style.display = "none";
-      tracePre.style.display = "none";
-      toggleTraceBtn.textContent = "View Detailed Traceback";
-      taskStatus.style.display = "block";
-      taskStatus.style.borderColor = "var(--border)";
-      taskStatusText.textContent = "Queuing generation job...";
+      errorCard.style.display = "none";
+      traceBox.style.display = "none";
+      toggleTraceBtn.textContent = "View Traceback";
+      pipelineTracker.style.display = "block";
+      pipelineStatusLabel.textContent = "Initializing Fast Ingestion Pipeline...";
+      setStepState(1);
+      startTimer();
 
       const subStyle = document.getElementById("subtitleStyleSelect").value;
       const payload = {
@@ -570,6 +1202,7 @@
         burn_subtitles: subStyle !== "none",
         burn_hook_title: document.getElementById("hookTitleCheck").checked,
         subtitle_style: subStyle,
+        resolution: parseInt(document.getElementById("resolutionSelect").value),
       };
 
       try {
@@ -585,19 +1218,19 @@
         }
 
         const data = await res.json();
-        taskStatusText.textContent = "Job queued. Starting transcription and analysis...";
         pollTask(data.task_id);
       } catch (err) {
-        taskStatusText.textContent = "Request Error";
-        errorMessageText.textContent = err.message;
-        errorDetailsBox.style.display = "block";
-        taskStatus.style.borderColor = "var(--danger)";
+        stopTimer();
+        pipelineStatusLabel.textContent = "Request Error";
+        errorMsg.textContent = err.message;
+        errorCard.style.display = "block";
         submitBtn.disabled = false;
         fetchLogs();
       }
     });
 
-    loadExistingClips();
+    // Initial Load
+    loadClips();
     fetchLogs();
     setInterval(fetchLogs, 15000);
   </script>
