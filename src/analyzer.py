@@ -18,22 +18,16 @@ SYSTEM_PROMPT = """You are an expert video editor specialized in creating viral 
 Your task is to analyze the timestamped transcript of a video and select the most compelling, high-retention segments.
 
 Evaluation criteria:
-1. Hook potential: Begins with an intriguing question, bold statement, or high-energy moment.
+1. Hook potential: Begins with an intriguing question, bold statement, emotional punch, or high-energy moment.
 2. Self-contained: The segment makes sense on its own without requiring the full context.
 3. Emotional or intellectual impact: Delivers an unexpected insight, humorous quote, or strong takeaway.
-4. Optimal duration: Each highlight should be between 15 and 60 seconds long (or shorter if the total video is under 30 seconds).
-
-Multilingual & Arabic / Algerian Darija (الدارجة الجزائرية والمغاربية) Guidance:
-- The video transcript may be in Arabic (العربية), North African / Algerian Darija (الدارجة الجزائرية), Arabizi, French, or gaming code-switching.
-- You understand Algerian Darija vocabulary, gamer slang, clutch plays, banter, and emotional reactions.
-- When analyzing Arabic or Darija transcripts:
-  - Keep the generated `title` and `hook` in natural Arabic or Darija that matches the spoken language (e.g., "أقوى كلاوتش في فالورانت", "لقطة مجنونة تموت بالضحك", "زعما يجيبها؟").
-  - Do NOT force-translate colloquial Arabic or Darija slang into awkward English. Preserve the authentic energy and humor of the speakers.
+4. Target duration: Each highlight MUST strictly adhere to the requested duration limits.
+5. Natural language: Output the title and opening hook in the same primary language as spoken in the video.
 
 Return ONLY a valid JSON array of objects with the following schema:
 [
   {
-    "title": "Brief title",
+    "title": "Brief catchy title",
     "hook": "Opening sentence",
     "start": 12.5,
     "end": 45.0,
@@ -75,7 +69,14 @@ class HighlightAnalyzer:
         return data
 
     def _analyze_with_gemini(
-        self, transcript_str: str, n_clips: int, heatmap_context: str = ""
+        self,
+        transcript_str: str,
+        n_clips: int,
+        heatmap_context: str = "",
+        min_duration: int = 20,
+        max_duration: int = 60,
+        time_range_start: Optional[float] = None,
+        time_range_end: Optional[float] = None,
     ) -> List[HighlightCandidate]:
         import google.generativeai as genai
 
@@ -88,7 +89,18 @@ class HighlightAnalyzer:
             system_instruction=SYSTEM_PROMPT,
         )
 
-        prompt = f"{heatmap_context}Analyze the following timestamped transcript and return the top {n_clips} best clips (20-60s each):\n\n{transcript_str}"
+        window_instruction = ""
+        if time_range_start is not None or time_range_end is not None:
+            w_start = time_range_start or 0.0
+            w_end = f"{time_range_end:.1f}s" if time_range_end else "the specified window end"
+            window_instruction = f"MANDATORY TIME WINDOW: All selected clips must fall strictly between {w_start:.1f}s and {w_end}.\n"
+
+        prompt = (
+            f"{heatmap_context}{window_instruction}"
+            f"Analyze the following timestamped transcript and return the top {n_clips} best viral clips. "
+            f"Each clip MUST be strictly between {min_duration} and {max_duration} seconds in duration.\n\n"
+            f"{transcript_str}"
+        )
         response = model.generate_content(
             prompt,
             generation_config={"temperature": 0.3},
@@ -98,7 +110,14 @@ class HighlightAnalyzer:
         return [HighlightCandidate(**item) for item in raw_json][:n_clips]
 
     def _analyze_with_openai(
-        self, transcript_str: str, n_clips: int, heatmap_context: str = ""
+        self,
+        transcript_str: str,
+        n_clips: int,
+        heatmap_context: str = "",
+        min_duration: int = 20,
+        max_duration: int = 60,
+        time_range_start: Optional[float] = None,
+        time_range_end: Optional[float] = None,
     ) -> List[HighlightCandidate]:
         from openai import OpenAI
 
@@ -106,7 +125,18 @@ class HighlightAnalyzer:
             raise ValueError("OPENAI_API_KEY is not configured in .env")
 
         client = OpenAI(api_key=config.openai_api_key)
-        prompt = f"{heatmap_context}Analyze the following timestamped transcript and return the top {n_clips} best clips (20-60s each):\n\n{transcript_str}"
+        window_instruction = ""
+        if time_range_start is not None or time_range_end is not None:
+            w_start = time_range_start or 0.0
+            w_end = f"{time_range_end:.1f}s" if time_range_end else "the specified window end"
+            window_instruction = f"MANDATORY TIME WINDOW: All selected clips must fall strictly between {w_start:.1f}s and {w_end}.\n"
+
+        prompt = (
+            f"{heatmap_context}{window_instruction}"
+            f"Analyze the following timestamped transcript and return the top {n_clips} best viral clips. "
+            f"Each clip MUST be strictly between {min_duration} and {max_duration} seconds in duration.\n\n"
+            f"{transcript_str}"
+        )
 
         response = client.chat.completions.create(
             model=config.openai_model,
@@ -126,8 +156,12 @@ class HighlightAnalyzer:
         transcript_segments: List[Dict[str, Any]],
         n_clips: int = 3,
         heatmap_peaks: Optional[List[Dict[str, Any]]] = None,
+        min_duration: int = 20,
+        max_duration: int = 60,
+        time_range_start: Optional[float] = None,
+        time_range_end: Optional[float] = None,
     ) -> List[HighlightCandidate]:
-        """Detects top highlight moments based on transcript and YouTube viewer retention peaks."""
+        """Detects top highlight moments based on transcript, duration bounds, and audience retention peaks."""
         transcript_str = self._prepare_transcript_text(transcript_segments)
 
         heatmap_context = ""
@@ -143,9 +177,25 @@ class HighlightAnalyzer:
         candidates: List[HighlightCandidate] = []
         try:
             if self.provider == "gemini":
-                candidates = self._analyze_with_gemini(transcript_str, n_clips, heatmap_context=heatmap_context)
+                candidates = self._analyze_with_gemini(
+                    transcript_str,
+                    n_clips,
+                    heatmap_context=heatmap_context,
+                    min_duration=min_duration,
+                    max_duration=max_duration,
+                    time_range_start=time_range_start,
+                    time_range_end=time_range_end,
+                )
             elif self.provider == "openai":
-                candidates = self._analyze_with_openai(transcript_str, n_clips, heatmap_context=heatmap_context)
+                candidates = self._analyze_with_openai(
+                    transcript_str,
+                    n_clips,
+                    heatmap_context=heatmap_context,
+                    min_duration=min_duration,
+                    max_duration=max_duration,
+                    time_range_start=time_range_start,
+                    time_range_end=time_range_end,
+                )
             else:
                 raise ValueError(f"Unsupported LLM provider: {self.provider}. Use 'gemini' or 'openai'.")
         except Exception:
@@ -184,7 +234,7 @@ class HighlightAnalyzer:
                     title="Key Highlight",
                     hook=first_text[:60].strip(),
                     start=start_t,
-                    end=min(end_t, round(start_t + 60.0, 2)),
+                    end=min(end_t, round(start_t + max(min_duration, min(max_duration, 45.0)), 2)),
                     score=85,
                     reason="Automatically generated highlight covering key transcript moments.",
                 )

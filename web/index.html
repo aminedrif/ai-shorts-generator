@@ -6,10 +6,12 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>AI Shorts Generator - Studio</title>
+  <title>ASG - AI Shorts Generator Studio</title>
+  <link rel="icon" type="image/x-icon" href="assets/icon.ico">
+  <link rel="icon" type="image/png" href="assets/icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&family=Montserrat:wght@700;800&family=Anton&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bangers&family=Bungee&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=Montserrat:wght@700;800;900&family=Oswald:wght@700&family=Poppins:wght@700;800;900&family=Rubik:wght@700;800;900&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #09090b;
@@ -592,6 +594,54 @@
     .color-swatch.active {
       border-color: #ffffff;
       box-shadow: 0 0 0 2px #09090b;
+    }
+
+    /* Live Video Caption Preview Box */
+    .caption-preview-stage {
+      position: relative;
+      margin-top: 10px;
+      padding: 24px 16px;
+      background: radial-gradient(circle at center, rgba(39, 39, 42, 0.4) 0%, rgba(9, 9, 11, 0.95) 100%), #0c0c0e;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      min-height: 85px;
+    }
+
+    .caption-preview-words {
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.4;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      user-select: none;
+    }
+
+    .caption-preview-words .word-spoken {
+      color: #9ca3af;
+      margin: 0 4px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+    }
+
+    .caption-preview-words .word-active {
+      color: #facc15;
+      font-weight: 900;
+      margin: 0 6px;
+      display: inline-block;
+      transform: scale(1.12);
+      text-shadow: 0 3px 8px rgba(0, 0, 0, 0.9), -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+      transition: color 0.15s ease, transform 0.2s ease;
+    }
+
+    .caption-preview-words .word-upcoming {
+      color: #ffffff;
+      margin: 0 4px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
     }
 
     /* Process & Cancel Buttons */
@@ -1566,8 +1616,12 @@
   <header class="app-header">
     <div class="app-header-inner">
       <div class="app-brand">
-        <span class="app-brand-title">AI Shorts Generator</span>
-        <span class="app-brand-tag">Studio</span>
+        <img src="assets/logo.png" alt="ASG Logo" class="app-brand-logo" style="width: 32px; height: 32px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); background: var(--card);">
+        <div>
+          <span class="app-brand-title" style="letter-spacing: -0.01em;">A-S-G</span>
+          <span style="font-size: 13px; font-weight: 500; color: #a1a1aa; margin-left: 4px;">Studio</span>
+        </div>
+        <span class="app-brand-tag">AI Shorts Generator</span>
       </div>
       <div class="header-metrics">
         <span id="clipsCountBadge" class="clips-count-badge">0 Clips Ready</span>
@@ -1665,26 +1719,28 @@
             <span>Style & Captions</span>
           </div>
 
-          <!-- Caption Style Selector -->
-          <div class="control-row">
-            <label class="control-label">Caption Style</label>
-            <select id="captionStyleSelect" class="select-input" onchange="updateMockupPreview()">
-              <option value="karaoke">Karaoke Highlighter (Active syllable glow)</option>
-              <option value="impact">Bold Impact (MrBeast uppercase center)</option>
-              <option value="clean">Minimal Clean (Modern lower-third)</option>
-              <option value="default">Default Synced</option>
-            </select>
+          <!-- Caption Style: Karaoke Highlighter Only -->
+          <div class="control-row" style="align-items:center; justify-content:space-between;">
+            <div>
+              <label class="control-label" style="margin-bottom:2px;">Caption Style</label>
+              <div style="font-size:12px; color:var(--text-subtle);">Active word syllable glow & scale pop</div>
+            </div>
+            <div style="display:inline-flex; align-items:center; gap:6px; background:rgba(250, 204, 21, 0.12); border:1px solid rgba(250, 204, 21, 0.3); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; color:#facc15;">
+              <span style="width:6px; height:6px; border-radius:50%; background:#facc15; box-shadow:0 0 6px #facc15;"></span>
+              Karaoke Highlighter
+            </div>
+            <input type="hidden" id="captionStyleSelect" value="karaoke" />
           </div>
 
           <!-- Language & Dialect Selector -->
           <div class="control-row">
             <label class="control-label">Spoken Language</label>
             <select id="languageSelect" class="select-input">
+              <option value="en" selected>English</option>
               <option value="auto">Auto-Detect (Universal)</option>
-              <option value="ar" selected>Arabic / Algerian Darija (العربية / الدارجة)</option>
               <option value="fr">French (Français)</option>
-              <option value="en">English</option>
               <option value="es">Spanish (Español)</option>
+              <option value="ar">Arabic / Darija (العربية)</option>
             </select>
           </div>
 
@@ -1692,21 +1748,66 @@
           <div class="control-row">
             <label class="control-label">Whisper AI Model</label>
             <select id="whisperModelSelect" class="select-input">
-              <option value="base">Base (Fastest)</option>
-              <option value="small" selected>Small (Recommended for Darija & Slang)</option>
+              <option value="base" selected>Base (Fastest)</option>
+              <option value="small">Small (Balanced)</option>
               <option value="medium">Medium (High Precision)</option>
             </select>
           </div>
 
           <!-- Framing Selector -->
           <div class="control-row">
-            <label class="control-label">Framing</label>
+            <label class="control-label">Framing & Camera Focus</label>
             <select id="framingSelect" class="select-input">
-              <option value="smart_crop">Auto 9:16 (Smart face tracking)</option>
-              <option value="speaker_pan">Speaker Pan</option>
-              <option value="split_screen">Split-screen</option>
-              <option value="original">Original</option>
+              <option value="smart_crop" selected>Auto 9:16 (Smart Face Tracking)</option>
+              <option value="stream_focus">Stream Focus (Zoom on Creator, Ignore Chat)</option>
+              <option value="split_screen">Stream Split-Screen (Creator on Top, Gameplay Bottom)</option>
+              <option value="blurred_background">Blurred Background (16:9 in Center)</option>
             </select>
+          </div>
+
+          <!-- Target Duration Selector -->
+          <div class="control-row">
+            <label class="control-label">Clip Target Duration</label>
+            <select id="durationSelect" class="select-input" onchange="handleDurationChange()">
+              <option value="15-30">15s - 30s (Quick & Punchy)</option>
+              <option value="30-60" selected>30s - 60s (Standard Short - Recommended)</option>
+              <option value="60-90">60s - 90s (Extended Story)</option>
+              <option value="custom">Custom Duration...</option>
+            </select>
+          </div>
+          <div id="customDurationRow" class="control-row" style="display:none; gap:10px; margin-top:-4px;">
+            <div style="flex:1;">
+              <span style="font-size:11px; color:var(--text-muted);">Min (seconds)</span>
+              <input type="number" id="minDurationInput" class="select-input" value="20" min="5" max="180" style="padding:6px 10px;" />
+            </div>
+            <div style="flex:1;">
+              <span style="font-size:11px; color:var(--text-muted);">Max (seconds)</span>
+              <input type="number" id="maxDurationInput" class="select-input" value="60" min="10" max="300" style="padding:6px 10px;" />
+            </div>
+          </div>
+
+          <!-- Video Time Window (Minute Selector) -->
+          <div class="cleanup-box" style="margin-top:12px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div class="cleanup-title">Video Search Window</div>
+                <div class="cleanup-sub">Cut clips from a specific minute range (e.g. Min 2 to 3)</div>
+              </div>
+              <label class="switch" style="width:36px; height:20px;">
+                <input type="checkbox" id="timeRangeToggle" onchange="toggleTimeRange(this.checked)" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="timeRangeInputs" style="display:none; margin-top:10px; gap:10px;">
+              <div style="flex:1;">
+                <span style="font-size:11px; color:var(--text-muted);">Start (MM:SS)</span>
+                <input type="text" id="timeRangeStartInput" class="select-input" placeholder="02:00" style="padding:6px 10px;" />
+              </div>
+              <div style="flex:1;">
+                <span style="font-size:11px; color:var(--text-muted);">End (MM:SS)</span>
+                <input type="text" id="timeRangeEndInput" class="select-input" placeholder="03:00" style="padding:6px 10px;" />
+              </div>
+            </div>
           </div>
 
           <!-- Add Subtitles Toggle -->
@@ -1774,32 +1875,62 @@
               <div class="control-row">
                 <label class="control-label">Font Family</label>
                 <select id="fontFamilySelect" class="select-input" onchange="updateMockupPreview()">
-                  <option value="'Inter', sans-serif">Inter</option>
-                  <option value="'Syne', sans-serif">Syne</option>
-                  <option value="'Montserrat', sans-serif">Montserrat</option>
-                  <option value="'Anton', sans-serif">Anton</option>
+                  <option value="'Montserrat', sans-serif" selected>Montserrat (Modern Viral Bold — Recommended)</option>
+                  <option value="Impact, sans-serif">Impact (Classic Shorts Font)</option>
+                  <option value="'Anton', sans-serif">Anton (Punchy High Energy)</option>
+                  <option value="'Poppins', sans-serif">Poppins (Clean Bold Geometric)</option>
+                  <option value="'Bungee', cursive">Bungee (Gaming & Arcade)</option>
+                  <option value="'Bangers', cursive">Bangers (Comic Action Punch)</option>
+                  <option value="'Oswald', sans-serif">Oswald (Tall Condensed)</option>
+                  <option value="'Rubik', sans-serif">Rubik (Smooth Rounded)</option>
+                  <option value="'Syne', sans-serif">Syne (Artistic & Trendy)</option>
+                  <option value="'Inter', sans-serif">Inter (Minimal Clean)</option>
+                  <option value="'Arial Black', sans-serif">Arial Black (Heavy Solid)</option>
                 </select>
               </div>
 
               <div class="control-row">
                 <label class="control-label">Font Size</label>
                 <div class="font-size-grid">
-                  <button type="button" class="size-btn" onclick="setFontSize(13, this)">Small</button>
-                  <button type="button" class="size-btn active" onclick="setFontSize(16, this)">Medium</button>
-                  <button type="button" class="size-btn" onclick="setFontSize(19, this)">Large</button>
-                  <button type="button" class="size-btn" onclick="setFontSize(22, this)">X-Large</button>
+                  <button type="button" class="size-btn" onclick="setFontSize(13, this, 52)">Small</button>
+                  <button type="button" class="size-btn active" onclick="setFontSize(16, this, 64)">Medium</button>
+                  <button type="button" class="size-btn" onclick="setFontSize(19, this, 76)">Large</button>
+                  <button type="button" class="size-btn" onclick="setFontSize(22, this, 88)">X-Large</button>
                 </div>
               </div>
 
               <div class="control-row">
-                <label class="control-label">Font Color</label>
+                <label class="control-label" style="display:flex; justify-content:space-between;">
+                  <span>Highlight Color (Active Word)</span>
+                  <span id="highlightHexLabel" style="font-size:11px; color:#facc15; font-family:monospace; font-weight:700;">#FACC15</span>
+                </label>
                 <div class="colors-row">
-                  <div class="color-swatch active" style="background:#ffffff;" onclick="setFontColor('#ffffff', this)"></div>
-                  <div class="color-swatch" style="background:#facc15;" onclick="setFontColor('#facc15', this)"></div>
-                  <div class="color-swatch" style="background:#38bdf8;" onclick="setFontColor('#38bdf8', this)"></div>
-                  <div class="color-swatch" style="background:#4ade80;" onclick="setFontColor('#4ade80', this)"></div>
-                  <div class="color-swatch" style="background:#f87171;" onclick="setFontColor('#f87171', this)"></div>
-                  <input type="color" id="customColorPicker" value="#ffffff" style="width:26px; height:26px; border:none; background:none; cursor:pointer;" onchange="setFontColor(this.value, null)" />
+                  <div class="color-swatch active" style="background:#facc15;" title="Electric Yellow" onclick="setHighlightColor('#facc15', this)"></div>
+                  <div class="color-swatch" style="background:#22c55e;" title="Emerald Green" onclick="setHighlightColor('#22c55e', this)"></div>
+                  <div class="color-swatch" style="background:#38bdf8;" title="Cyan Blue" onclick="setHighlightColor('#38bdf8', this)"></div>
+                  <div class="color-swatch" style="background:#f97316;" title="Vivid Orange" onclick="setHighlightColor('#f97316', this)"></div>
+                  <div class="color-swatch" style="background:#ec4899;" title="Hot Pink" onclick="setHighlightColor('#ec4899', this)"></div>
+                  <div class="color-swatch" style="background:#a855f7;" title="Neon Purple" onclick="setHighlightColor('#a855f7', this)"></div>
+                  <div class="color-swatch" style="background:#ef4444;" title="Vivid Red" onclick="setHighlightColor('#ef4444', this)"></div>
+                  <input type="color" id="customColorPicker" value="#facc15" style="width:26px; height:26px; border:none; background:none; cursor:pointer;" onchange="setHighlightColor(this.value, null)" />
+                </div>
+              </div>
+
+              <!-- Live Video Caption Preview Box -->
+              <div style="margin-top:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label class="control-label" style="margin:0;">Live Video Caption Preview</label>
+                  <span style="font-size:11px; color:#34d399; font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                    <span style="width:6px; height:6px; border-radius:50%; background:#34d399; box-shadow:0 0 6px #34d399;"></span>
+                    In-Video Look
+                  </span>
+                </div>
+                <div class="caption-preview-stage" id="captionPreviewStage">
+                  <div class="caption-preview-words" id="captionPreviewWords">
+                    <span class="word-spoken">THIS IS HOW</span>
+                    <span class="word-active" id="previewActiveWord">AWESOME</span>
+                    <span class="word-upcoming">YOUR CAPTIONS LOOK</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1988,7 +2119,9 @@
           <!-- Dynamic Live Subtitle in Phone Mockup -->
           <div class="mockup-subtitle-container" id="mockupSubtitleWrap">
             <span class="mockup-subtitle-text" id="mockupSubtitleText">
-              Your subtitle will look like this
+              <span class="mockup-spoken" style="color: #9ca3af;">THIS IS HOW </span>
+              <span class="mockup-active" id="mockupActiveWord" style="color: #facc15; font-weight: 900;">AWESOME </span>
+              <span class="mockup-upcoming" style="color: #ffffff;">YOUR SHORTS LOOK</span>
             </span>
           </div>
 
@@ -2063,7 +2196,8 @@
     // State management
     let activeSourceMode = 'youtube';
     let selectedFontSize = 16;
-    let selectedFontColor = '#ffffff';
+    let selectedAssFontSize = 64;
+    let selectedHighlightColor = '#facc15';
     let clipToDeleteFilename = null;
     let activeTaskId = null;
     let pollInterval = null;
@@ -2546,8 +2680,9 @@
       mockupWrap.style.display = checked ? 'block' : 'none';
     }
 
-    function setFontSize(size, btn) {
-      selectedFontSize = size;
+    function setFontSize(mockupSize, btn, assSize = 64) {
+      selectedFontSize = mockupSize;
+      selectedAssFontSize = assSize;
       if (btn) {
         document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -2555,32 +2690,76 @@
       updateMockupPreview();
     }
 
-    function setFontColor(color, swatch) {
-      selectedFontColor = color;
+    function setHighlightColor(color, swatch) {
+      selectedHighlightColor = color;
+      const hexLabel = document.getElementById('highlightHexLabel');
+      if (hexLabel) {
+        hexLabel.innerText = color.toUpperCase();
+        hexLabel.style.color = color;
+      }
       if (swatch) {
         document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
         swatch.classList.add('active');
       }
+      const picker = document.getElementById('customColorPicker');
+      if (picker && picker !== swatch) {
+        picker.value = color;
+      }
       updateMockupPreview();
     }
 
-    // Live update inside iPhone mockup
+    // Live update inside iPhone mockup and Live Preview Box
     function updateMockupPreview() {
-      const font = document.getElementById('fontFamilySelect').value;
-      const style = document.getElementById('captionStyleSelect').value;
+      const font = document.getElementById('fontFamilySelect')?.value || "'Montserrat', sans-serif";
       const subtitle = document.getElementById('mockupSubtitleText');
+      const previewWords = document.getElementById('captionPreviewWords');
+      const previewActive = document.getElementById('previewActiveWord');
+      const mockupActive = document.getElementById('mockupActiveWord');
 
-      subtitle.style.fontFamily = font;
-      subtitle.style.fontSize = selectedFontSize + 'px';
-      subtitle.style.color = selectedFontColor;
-
-      if (style === 'impact') {
-        subtitle.style.textTransform = 'uppercase';
-        subtitle.style.letterSpacing = '0.05em';
-      } else {
-        subtitle.style.textTransform = 'none';
-        subtitle.style.letterSpacing = 'normal';
+      // Update Live Video Caption Preview Box
+      if (previewWords) {
+        previewWords.style.fontFamily = font;
+        previewWords.style.fontSize = selectedFontSize + 'px';
       }
+      if (previewActive) {
+        previewActive.style.color = selectedHighlightColor;
+      }
+
+      // Update iPhone Mockup Chassis Subtitle
+      if (subtitle) {
+        subtitle.style.fontFamily = font;
+        subtitle.style.fontSize = selectedFontSize + 'px';
+      }
+      if (mockupActive) {
+        mockupActive.style.color = selectedHighlightColor;
+      }
+    }
+
+    function handleDurationChange() {
+      const select = document.getElementById('durationSelect');
+      const customRow = document.getElementById('customDurationRow');
+      if (customRow) {
+        customRow.style.display = (select && select.value === 'custom') ? 'flex' : 'none';
+      }
+    }
+
+    function toggleTimeRange(enabled) {
+      const inputs = document.getElementById('timeRangeInputs');
+      if (inputs) {
+        inputs.style.display = enabled ? 'flex' : 'none';
+      }
+    }
+
+    function parseTimeToSeconds(val) {
+      if (!val) return null;
+      val = val.trim();
+      if (val.includes(':')) {
+        const parts = val.split(':').map(p => parseFloat(p) || 0);
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
+      const num = parseFloat(val);
+      return isNaN(num) ? null : num;
     }
 
     // Start Generation Job
@@ -2656,8 +2835,45 @@
       const nClips = parseInt(document.getElementById('clipsCountRange').value) || 3;
       const subtitleStyle = document.getElementById('captionStyleSelect').value;
       const burnSubtitles = document.getElementById('subtitlesToggle').checked;
-      const language = document.getElementById('languageSelect')?.value || 'auto';
-      const whisperModel = document.getElementById('whisperModelSelect')?.value || 'small';
+      const language = document.getElementById('languageSelect')?.value || 'en';
+      const whisperModel = document.getElementById('whisperModelSelect')?.value || 'base';
+      const framingStyle = document.getElementById('framingSelect')?.value || 'smart_crop';
+
+      // Duration limits
+      let minDuration = 20;
+      let maxDuration = 60;
+      const durationChoice = document.getElementById('durationSelect')?.value || '30-60';
+      if (durationChoice === '15-30') {
+        minDuration = 15; maxDuration = 30;
+      } else if (durationChoice === '30-60') {
+        minDuration = 30; maxDuration = 60;
+      } else if (durationChoice === '60-90') {
+        minDuration = 60; maxDuration = 90;
+      } else if (durationChoice === 'custom') {
+        minDuration = parseInt(document.getElementById('minDurationInput')?.value) || 20;
+        maxDuration = parseInt(document.getElementById('maxDurationInput')?.value) || 60;
+      }
+
+      // Time range window
+      let timeRangeStart = null;
+      let timeRangeEnd = null;
+      const timeRangeEnabled = document.getElementById('timeRangeToggle')?.checked;
+      if (timeRangeEnabled) {
+        const startRaw = document.getElementById('timeRangeStartInput')?.value;
+        const endRaw = document.getElementById('timeRangeEndInput')?.value;
+        if (startRaw) timeRangeStart = parseTimeToSeconds(startRaw);
+        if (endRaw) timeRangeEnd = parseTimeToSeconds(endRaw);
+      }
+
+      // Font name extraction
+      let fontName = 'Montserrat';
+      const rawFont = document.getElementById('fontFamilySelect')?.value || 'Montserrat';
+      const fontMatch = rawFont.match(/'([^']+)'/);
+      if (fontMatch) {
+        fontName = fontMatch[1];
+      } else {
+        fontName = rawFont.split(',')[0].trim();
+      }
 
       // Show processing card
       const processingCard = document.getElementById('processingCard');
@@ -2672,10 +2888,19 @@
             source: source,
             n_clips: nClips,
             ratio: '9:16',
+            style: framingStyle,
             burn_subtitles: burnSubtitles,
-            subtitle_style: subtitleStyle,
+            subtitle_style: 'karaoke',
             language: language,
             whisper_model: whisperModel,
+            min_duration: minDuration,
+            max_duration: maxDuration,
+            time_range_start: timeRangeStart,
+            time_range_end: timeRangeEnd,
+            resolution: 1080,
+            highlight_color: selectedHighlightColor,
+            font_name: fontName,
+            font_size: selectedAssFontSize,
           }),
         });
 

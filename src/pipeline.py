@@ -39,6 +39,13 @@ class ShortsPipeline:
         progress_callback: Optional[Callable[[int, str, str], None]] = None,
         language: Optional[str] = None,
         whisper_model: Optional[str] = None,
+        min_duration: int = 20,
+        max_duration: int = 60,
+        time_range_start: Optional[float] = None,
+        time_range_end: Optional[float] = None,
+        highlight_color: str = "#facc15",
+        font_name: str = "Montserrat",
+        font_size: int = 64,
     ) -> Dict[str, Any]:
         """Runs the pipeline from ingestion to rendered clips."""
         start_time = time.time()
@@ -92,7 +99,28 @@ class ShortsPipeline:
             if not transcript or not transcript.get("segments"):
                 raise RuntimeError("No speech or subtitles detected for this video.")
 
+            # Filter transcript to requested time range window if provided (e.g. from 2nd to 3rd min)
+            if time_range_start is not None or time_range_end is not None:
+                t_start = max(0.0, float(time_range_start or 0.0))
+                t_end = float(time_range_end) if time_range_end is not None else float("inf")
+                logger.info(f"Targeting time window: {t_start:.1f}s to {t_end:.1f}s")
+                filtered_segs = [
+                    s for s in transcript["segments"]
+                    if float(s.get("end", 0)) >= t_start and float(s.get("start", 0)) <= t_end
+                ]
+                if filtered_segs:
+                    transcript["segments"] = filtered_segs
+                    logger.info(f"Filtered transcript to {len(filtered_segs)} segments within target window.")
+
             heatmap_peaks = transcript.get("heatmap_peaks")
+            if heatmap_peaks and (time_range_start is not None or time_range_end is not None):
+                t_start = max(0.0, float(time_range_start or 0.0))
+                t_end = float(time_range_end) if time_range_end is not None else float("inf")
+                heatmap_peaks = [
+                    p for p in heatmap_peaks
+                    if float(p.get("end_time", 0)) >= t_start and float(p.get("start_time", 0)) <= t_end
+                ]
+
             if heatmap_peaks:
                 logger.info(
                     f"YouTube Heatmap: Aligning with {len(heatmap_peaks)} Most Replayed peaks (Top peak: {int(heatmap_peaks[0]['intensity']*100)}% retention)."
@@ -100,7 +128,13 @@ class ShortsPipeline:
 
             report(50, "analysis", "AI analyzing retention peaks and virality scoring...")
             highlights = self.analyzer.find_highlights(
-                transcript["segments"], n_clips=n_clips, heatmap_peaks=heatmap_peaks
+                transcript["segments"],
+                n_clips=n_clips,
+                heatmap_peaks=heatmap_peaks,
+                min_duration=min_duration,
+                max_duration=max_duration,
+                time_range_start=time_range_start,
+                time_range_end=time_range_end,
             )
 
             logger.info(f"[4/4] Rendering {len(highlights)} vertical short clips...")
@@ -141,6 +175,9 @@ class ShortsPipeline:
                         hook_title=(h.hook or h.title) if burn_hook_title else None,
                         subtitle_style=subtitle_style,
                         is_precut=is_precut,
+                        highlight_color=highlight_color,
+                        font_name=font_name,
+                        font_size=font_size,
                     )
 
                     meta_data = {

@@ -78,8 +78,15 @@ class GenerateJobRequest(BaseModel):
     subtitle_style: str = Field(default="karaoke")
     resolution: int = Field(default=1080)
     provider: Optional[str] = Field(default=None)
-    language: Optional[str] = Field(default="auto")
+    language: Optional[str] = Field(default="en")
     whisper_model: Optional[str] = Field(default=None)
+    min_duration: int = Field(default=20, ge=5, le=180)
+    max_duration: int = Field(default=60, ge=10, le=300)
+    time_range_start: Optional[float] = Field(default=None)
+    time_range_end: Optional[float] = Field(default=None)
+    highlight_color: str = Field(default="#facc15")
+    font_name: str = Field(default="Montserrat")
+    font_size: int = Field(default=64)
 
 
 from src.pipeline import ShortsPipeline, CANCELLED_TASKS
@@ -115,6 +122,13 @@ def run_pipeline_worker(task_id: str, req: GenerateJobRequest):
             progress_callback=on_progress,
             language=req.language,
             whisper_model=req.whisper_model,
+            min_duration=req.min_duration,
+            max_duration=req.max_duration,
+            time_range_start=req.time_range_start,
+            time_range_end=req.time_range_end,
+            highlight_color=req.highlight_color,
+            font_name=req.font_name,
+            font_size=req.font_size,
         )
         tasks[task_id]["status"] = "completed"
         tasks[task_id]["progress"] = 100
@@ -379,7 +393,20 @@ def get_logs(lines: int = 100):
 
 
 # Serve frontend static files if present
-WEB_DIR = config.base_dir / "web"
+import sys
+
+def resolve_web_dir() -> Path:
+    candidates = []
+    if hasattr(sys, "_MEIPASS"):
+        candidates.append(Path(sys._MEIPASS) / "web")
+    candidates.append(config.base_dir / "web")
+    candidates.append(Path(__file__).resolve().parent / "web")
+    for c in candidates:
+        if c.is_dir() and (c / "index.html").exists():
+            return c
+    return config.base_dir / "web"
+
+WEB_DIR = resolve_web_dir()
 
 @app.get("/")
 def get_index_page():
@@ -402,5 +429,25 @@ if WEB_DIR.exists():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    import threading
+    import webbrowser
+
+    is_frozen = getattr(sys, "frozen", False)
+    if is_frozen:
+        # In frozen PyInstaller app, suppress reload and auto-open browser
+        def open_browser():
+            time.sleep(1.2)
+            try:
+                webbrowser.open("http://localhost:8000")
+            except Exception:
+                pass
+
+        threading.Thread(target=open_browser, daemon=True).start()
+        print("=" * 60)
+        print("  AI Shorts Generator is running!")
+        print("  Web Interface: http://localhost:8000")
+        print("=" * 60)
+        uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    else:
+        uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
 

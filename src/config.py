@@ -1,12 +1,18 @@
 import os
+import sys
 import subprocess
 from pathlib import Path
 from dataclasses import dataclass
 from dotenv import load_dotenv
 
-load_dotenv()
+if getattr(sys, "frozen", False):
+    BASE_DIR = Path(sys.executable).resolve().parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Load environment variables from .env next to the executable/project
+load_dotenv(BASE_DIR / ".env")
+load_dotenv()
 
 
 @dataclass
@@ -68,10 +74,27 @@ def is_nvenc_available() -> bool:
 def get_ffmpeg_bin() -> str:
     """
     Resolves the FFmpeg binary path.
-    If FFmpeg is not found in system PATH, falls back to imageio_ffmpeg,
-    creates a standardized ffmpeg.exe binary in the temp bin directory,
-    and prepends it to PATH so external subprocesses and yt-dlp discover it.
+    1. Checks if ffmpeg.exe exists directly in BASE_DIR or BASE_DIR/bin
+    2. Checks PyInstaller bundle directory (sys._MEIPASS)
+    3. Checks system PATH
+    4. Falls back to imageio_ffmpeg, creating a copy in temp/bin
+    Ensures FFmpeg directory is in os.environ['PATH'] so yt-dlp finds it.
     """
+    exe_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    candidates = [
+        config.base_dir / exe_name,
+        config.base_dir / "bin" / exe_name,
+    ]
+    if hasattr(sys, "_MEIPASS"):
+        candidates.append(Path(sys._MEIPASS) / exe_name)
+
+    for c in candidates:
+        if c.is_file():
+            bin_folder_str = str(c.parent)
+            if bin_folder_str not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = bin_folder_str + os.pathsep + os.environ.get("PATH", "")
+            return str(c)
+
     import shutil
     bin_path = shutil.which("ffmpeg")
     if bin_path:
@@ -83,7 +106,7 @@ def get_ffmpeg_bin() -> str:
         if source_exe.exists():
             bin_dir = config.temp_dir / "bin"
             bin_dir.mkdir(parents=True, exist_ok=True)
-            target_exe = bin_dir / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
+            target_exe = bin_dir / exe_name
             if not target_exe.exists() or target_exe.stat().st_size != source_exe.stat().st_size:
                 try:
                     shutil.copy2(source_exe, target_exe)
@@ -104,18 +127,20 @@ def get_ffmpeg_bin() -> str:
 def setup_cuda_dll_paths():
     """
     On Windows, locates NVIDIA CUDA/cuBLAS runtime DLLs from installed
-    Python packages (e.g. nvidia-cublas-cu12, nvidia-cuda-nvrtc-cu12)
-    and registers them with os.add_dll_directory and PATH so CTranslate2
-    and faster-whisper can find cublas64_12.dll and related libraries.
+    Python packages or frozen bundle and registers them with os.add_dll_directory
+    and PATH so CTranslate2 and faster-whisper can find cublas64_12.dll.
     """
     if os.name != "nt":
         return
 
-    import sys
     import site
 
     dll_paths = set()
     search_dirs = []
+    if getattr(sys, "frozen", False):
+        search_dirs.append(Path(sys.executable).resolve().parent)
+        if hasattr(sys, "_MEIPASS"):
+            search_dirs.append(Path(sys._MEIPASS))
     try:
         search_dirs.extend(site.getsitepackages())
     except Exception:
@@ -123,12 +148,16 @@ def setup_cuda_dll_paths():
     search_dirs.append(os.path.dirname(sys.executable))
 
     for base in search_dirs:
-        nvidia_dir = Path(base) / "nvidia"
+        p = Path(base)
+        nvidia_dir = p / "nvidia"
         if nvidia_dir.is_dir():
             for sub in nvidia_dir.iterdir():
                 bin_dir = sub / "bin"
                 if bin_dir.is_dir():
                     dll_paths.add(str(bin_dir))
+        internal_dir = p / "_internal"
+        if internal_dir.is_dir():
+            dll_paths.add(str(internal_dir))
 
     for path_str in dll_paths:
         try:

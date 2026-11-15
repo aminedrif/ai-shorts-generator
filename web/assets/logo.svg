@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Exact colors from web/index.html (:root: --bg: #09090b, --border: #27272a, --text: #fafafa) -->
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="#09090b" stroke="#27272a" stroke-width="6" />
+  <rect x="34" y="34" width="444" height="444" rx="102" fill="none" stroke="rgba(255, 255, 255, 0.06)" stroke-width="2" />
+  
+  <!-- Ultra-clean minimalist ASG Monogram -->
+  <text x="256" y="296" text-anchor="middle" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="148" font-weight="800" letter-spacing="-1px" fill="#fafafa">ASG</text>
+</svg>

@@ -1,6 +1,7 @@
 import re
 import json
 import glob
+import html
 import shutil
 import subprocess
 import time
@@ -258,6 +259,15 @@ def extract_heatmap_peaks(heatmap: Optional[List[Dict[str, Any]]], top_k: int = 
     return selected_peaks
 
 
+def clean_caption_text(text: str) -> str:
+    """Removes >>, &, gt, HTML artifacts, and emoji characters from caption text."""
+    if not text:
+        return ""
+    cleaned = re.sub(r"&gt;&gt;|&gt;|>>|>{1,}|«|»", " ", text)
+    cleaned = re.sub(r"[\U00010000-\U0010ffff\u2600-\u26ff\u2700-\u27bf\U0001f300-\U0001f9ff]", "", cleaned)
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
 def parse_json3_to_segments(json3_path: Path) -> List[Dict[str, Any]]:
     """
     Parses a YouTube json3 caption file into timestamped segment dictionaries
@@ -286,8 +296,9 @@ def parse_json3_to_segments(json3_path: Path) -> List[Dict[str, Any]]:
             continue
 
         for i, s in enumerate(segs):
-            utf8_text = s.get("utf8", "")
-            raw_words = utf8_text.replace("\n", " ").split()
+            utf8_text = html.unescape(s.get("utf8", ""))
+            clean_txt = clean_caption_text(utf8_text)
+            raw_words = clean_txt.replace("\n", " ").split()
             if not raw_words:
                 continue
 
@@ -390,30 +401,43 @@ def parse_vtt_to_segments(vtt_path: Path) -> List[Dict[str, Any]]:
             idx += 1
             text_lines = []
             while idx < len(lines) and lines[idx].strip() and not time_pattern.match(lines[idx].strip()):
-                clean_text = re.sub(r"<[^>]+>", "", lines[idx].strip())
+                clean_text = html.unescape(re.sub(r"<[^>]+>", "", lines[idx].strip()))
                 if clean_text:
                     text_lines.append(clean_text)
                 idx += 1
 
-            full_text = " ".join(text_lines).strip()
-            if full_text and (not segments or segments[-1]["text"] != full_text):
-                words = full_text.split()
-                w_count = max(1, len(words))
-                w_dur = (end_sec - start_sec) / w_count
-                word_objects = []
-                for w_i, word in enumerate(words):
-                    w_s = round(start_sec + w_i * w_dur, 2)
-                    w_e = round(w_s + w_dur, 2)
-                    word_objects.append({"word": word, "start": w_s, "end": w_e})
+            full_text = clean_caption_text(" ".join(text_lines))
+            if full_text:
+                # Handle YouTube rolling WebVTT subtitles by stripping repeated prefix
+                if segments:
+                    prev_txt = segments[-1]["text"]
+                    if full_text == prev_txt:
+                        idx += 1
+                        continue
+                    if full_text.startswith(prev_txt):
+                        suffix = full_text[len(prev_txt):].strip()
+                        if suffix:
+                            full_text = suffix
+                            start_sec = max(start_sec, segments[-1]["end"])
 
-                segments.append({
-                    "id": seg_id,
-                    "start": round(start_sec, 2),
-                    "end": round(end_sec, 2),
-                    "text": full_text,
-                    "words": word_objects,
-                })
-                seg_id += 1
+                words = full_text.split()
+                if words and end_sec > start_sec:
+                    w_count = len(words)
+                    w_dur = (end_sec - start_sec) / w_count
+                    word_objects = []
+                    for w_i, word in enumerate(words):
+                        w_s = round(start_sec + w_i * w_dur, 2)
+                        w_e = round(w_s + w_dur, 2)
+                        word_objects.append({"word": word, "start": w_s, "end": w_e})
+
+                    segments.append({
+                        "id": seg_id,
+                        "start": round(start_sec, 2),
+                        "end": round(end_sec, 2),
+                        "text": full_text,
+                        "words": word_objects,
+                    })
+                    seg_id += 1
         else:
             idx += 1
 
@@ -548,7 +572,7 @@ class VideoDownloader:
             }]
 
         ydl_opts = {
-            "format": f"bestvideo[height<={resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<={resolution}][ext=mp4]/best",
+            "format": f"bestvideo[height<={resolution}]+bestaudio/bestvideo+bestaudio/best[height<={resolution}]/best",
             "outtmpl": str(output_path),
             "merge_output_format": "mp4",
             "ffmpeg_location": ffmpeg_dir,
@@ -629,7 +653,7 @@ class VideoDownloader:
                 logger.info("[download] Video stream download finished. Merging media tracks...")
 
         ydl_opts = {
-            "format": f"bestvideo[height<={resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<={resolution}][ext=mp4]/bestvideo+bestaudio/best",
+            "format": f"bestvideo[height<={resolution}]+bestaudio/bestvideo+bestaudio/best[height<={resolution}]/best",
             "outtmpl": output_template,
             "merge_output_format": "mp4",
             "ffmpeg_location": ffmpeg_exe,

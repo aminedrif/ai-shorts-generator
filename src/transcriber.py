@@ -68,13 +68,10 @@ class VideoTranscriber:
         if lang in ("auto", "none", "", "all"):
             lang = None
 
-        # Build prompt: for Arabic/Darija or auto-detect, inject vocabulary prompt to prevent hallucinating European languages
+        # Build prompt: only inject specific vocabulary if explicitly requested or language is explicitly Arabic
         prompt = initial_prompt
-        if not prompt:
-            if lang == "ar":
-                prompt = DARIJA_ARABIC_PROMPT
-            elif lang is None:
-                prompt = DARIJA_ARABIC_PROMPT
+        if not prompt and lang == "ar":
+            prompt = DARIJA_ARABIC_PROMPT
 
         segments_raw, info = model.transcribe(
             str(audio_path),
