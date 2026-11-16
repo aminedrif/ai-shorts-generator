@@ -107,19 +107,28 @@ def find_local_video(source_str: str, temp_dir: Optional[Path] = None) -> Option
     return None
 
 
-def fetch_webpage_html(url: str) -> Tuple[Optional[str], Optional[str]]:
+def is_direct_media_url(url: str) -> bool:
+    """Checks if a URL points directly to a media file or stream."""
+    clean = url.lower().split("?")[0].split("#")[0]
+    return any(clean.endswith(ext) for ext in [
+        ".mp4", ".m3u8", ".webm", ".mov", ".m4v", ".mpd", ".ts", ".avi", ".mkv", ".flv"
+    ])
+
+
+def fetch_webpage_html(url: str, referer: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
     """Fetches HTML content from an arbitrary webpage using browser headers.
     Returns (html, final_url) or (None, None)."""
     try:
-        req = urllib.request.Request(
-            url,
-            headers={
-                "User-Agent": BROWSER_USER_AGENT,
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        headers = {
+            "User-Agent": BROWSER_USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        if referer:
+            headers["Referer"] = referer
+
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=12) as resp:
             content_type = resp.headers.get("Content-Type", "").lower()
             if any(vt in content_type for vt in ["video/", "application/vnd.apple.mpegurl", "application/x-mpegurl"]):
                 return None, resp.geturl()
@@ -132,21 +141,26 @@ def fetch_webpage_html(url: str) -> Tuple[Optional[str], Optional[str]]:
             except Exception:
                 return raw.decode("utf-8", errors="replace"), resp.geturl()
     except Exception as e:
-        logger.debug(f"Webpage fetch skipped: {e}")
+        logger.debug(f"Webpage fetch skipped on {url}: {e}")
         return None, None
 
 
-def extract_embedded_video_url(html: str, base_url: str) -> Optional[str]:
+def extract_embedded_video_url(html: str, base_url: str, depth: int = 0) -> Optional[str]:
     """Inspects arbitrary HTML for video streams, og:video, HTML5 <video>, JSON-LD, or embeds."""
     if not html:
         return None
     try:
         soup = bs4.BeautifulSoup(html, "html.parser")
+
+        # 1. OpenGraph / Twitter meta tags
         for prop in ["og:video", "og:video:url", "og:video:secure_url", "twitter:player:stream"]:
             meta = soup.find("meta", property=prop) or soup.find("meta", attrs={"name": prop})
             if meta and meta.get("content"):
-                return urllib.parse.urljoin(base_url, meta["content"].strip())
+                cand = urllib.parse.urljoin(base_url, meta["content"].strip())
+                if not cand.endswith((".html", ".htm", ".php")):
+                    return cand
 
+        # 2. HTML5 <video> and <source> tags
         for v in soup.find_all("video"):
             if v.get("src"):
                 return urllib.parse.urljoin(base_url, v["src"].strip())
@@ -154,27 +168,62 @@ def extract_embedded_video_url(html: str, base_url: str) -> Optional[str]:
                 if s.get("src"):
                     return urllib.parse.urljoin(base_url, s["src"].strip())
 
+        # 3. JSON-LD metadata
         for script in soup.find_all("script", type="application/ld+json"):
             if script.string:
-                m = re.search(r'"(?:contentUrl|embedUrl)"\s*:\s*"([^"]+)"', script.string)
+                m = re.search(r'"(?:contentUrl|embedUrl|videoUrl)"\s*:\s*"([^"]+)"', script.string)
                 if m:
                     return urllib.parse.urljoin(base_url, m.group(1).strip())
 
-        raw_matches = re.findall(r'https?://[^\s"\'<>]+\.(?:mp4|webm|m3u8|mov|m4v)(?:\?[^\s"\'<>]*)?', html)
+        # 4. Direct stream links in HTML (.m3u8, .mp4, .webm)
+        raw_matches = re.findall(r'https?://[^\s"\'<>]+\.(?:m3u8|mp4|webm|mov|m4v)(?:\?[^\s"\'<>]*)?', html)
         if raw_matches:
+            m3u8s = [u for u in raw_matches if ".m3u8" in u]
+            if m3u8s:
+                return m3u8s[0].strip()
             return raw_matches[0].strip()
 
-        for iframe in soup.find_all("iframe"):
+        # 5. Stream URLs in JavaScript variables / JSON configs
+        js_matches = re.findall(r'(?:file|source|url|src|stream)\s*[:=]\s*["\'](https?://[^\s"\'<>]+\.(?:m3u8|mp4|webm)[^\s"\'<>]*)["\']', html, re.I)
+        if js_matches:
+            return js_matches[0].strip()
+
+        # 6. ALL <iframe> embeds
+        iframes = soup.find_all("iframe")
+        for iframe in iframes:
             src = iframe.get("src")
-            if src and any(p in src for p in ["youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "player."]):
-                return urllib.parse.urljoin(base_url, src.strip())
+            if src:
+                clean_src = urllib.parse.urljoin(base_url, src.strip())
+                if any(p in clean_src.lower() for p in [
+                    "youtube.com", "youtu.be", "vimeo.com", "dailymotion.com", "streamable.com", "rumble.com"
+                ]):
+                    return clean_src
+
+        # 7. Recursive inspection into generic iframes (depth limit = 1)
+        if depth == 0:
+            for iframe in iframes:
+                src = iframe.get("src")
+                if src and src.startswith(("http://", "https://", "//")):
+                    clean_src = urllib.parse.urljoin(base_url, src.strip())
+                    logger.info(f"Inspecting iframe embed: {clean_src}")
+                    sub_html, sub_url = fetch_webpage_html(clean_src, referer=base_url)
+                    if sub_html:
+                        sub_video = extract_embedded_video_url(sub_html, sub_url or clean_src, depth=1)
+                        if sub_video:
+                            return sub_video
+
     except Exception as e:
         logger.debug(f"Failed to parse embedded video from HTML: {e}")
 
     return None
 
 
-def download_with_ffmpeg(stream_url: str, output_path: Path) -> Path:
+def download_with_ffmpeg(
+    stream_url: str,
+    output_path: Path,
+    referer: Optional[str] = None,
+    extra_headers: Optional[Dict[str, str]] = None,
+) -> Path:
     """Downloads or stream-copies a direct video/HLS URL directly via FFmpeg."""
     if not stream_url.startswith(("http://", "https://", "rtmp://", "rtsp://", "ftp://")):
         raise ValueError(f"Cannot stream-download non-URL: '{stream_url}'")
@@ -182,11 +231,27 @@ def download_with_ffmpeg(stream_url: str, output_path: Path) -> Path:
     ffmpeg_exe = get_ffmpeg_bin()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    header_lines = []
+    if referer:
+        header_lines.append(f"Referer: {referer}")
+    if extra_headers:
+        for k, v in extra_headers.items():
+            k_low = k.lower()
+            if k_low in ["origin", "user-agent", "authorization"] and v:
+                if k_low == "referer" and referer:
+                    continue
+                header_lines.append(f"{k}: {v}")
+
+    header_args = []
+    if header_lines:
+        header_args = ["-headers", "\r\n".join(header_lines) + "\r\n"]
+
     # First attempt: stream copy (lossless, instant)
     cmd_copy = [
         ffmpeg_exe,
         "-y",
         "-user_agent", BROWSER_USER_AGENT,
+        *header_args,
         "-i", stream_url,
         "-c", "copy",
         "-bsf:a", "aac_adtstoasc",
@@ -201,6 +266,7 @@ def download_with_ffmpeg(stream_url: str, output_path: Path) -> Path:
         ffmpeg_exe,
         "-y",
         "-user_agent", BROWSER_USER_AGENT,
+        *header_args,
         "-i", stream_url,
         "-c:v", "libx264",
         "-preset", "fast",
@@ -220,6 +286,176 @@ def download_with_ffmpeg(stream_url: str, output_path: Path) -> Path:
         raise RuntimeError(f"FFmpeg direct download failed: {err_msg}")
 
     return output_path
+
+
+def sniff_webpage_stream(url: str, timeout_s: int = 18) -> Optional[Dict[str, Any]]:
+    """
+    Launches a headless browser (Playwright Chromium) to navigate to the target page,
+    interacts with any dynamic video players/iframes, and sniffs network traffic in real-time
+    for HLS (.m3u8), DASH (.mpd), or direct media streams.
+    Returns a dict with 'stream_url', 'headers', and 'title', or None.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        logger.debug("Playwright not installed; skipping dynamic browser stream sniffing.")
+        return None
+
+    AD_BLOCKLIST = [
+        "google-analytics", "doubleclick", "googlesyndication", "adservice",
+        "adsystem", "scorecardresearch", "facebook.net", "analytics",
+        "hotjar", "clarity.ms", "segment.io", "telemetry", "tracking", "pixel"
+    ]
+
+    found_candidates: List[Dict[str, Any]] = []
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-blink-features=AutomationControlled",
+                    "--autoplay-policy=no-user-gesture-required",
+                ],
+            )
+            context = browser.new_context(
+                user_agent=BROWSER_USER_AGENT,
+                viewport={"width": 1280, "height": 720},
+                device_scale_factor=1,
+            )
+            page = context.new_page()
+
+            def is_media_url(u: str) -> bool:
+                u_low = u.lower()
+                if any(ad in u_low for ad in AD_BLOCKLIST):
+                    return False
+                if any(u_low.endswith(img) for img in [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".css", ".js"]):
+                    return False
+                return (
+                    ".m3u8" in u_low
+                    or ".mpd" in u_low
+                    or ".mp4" in u_low
+                    or ".webm" in u_low
+                    or ".m4v" in u_low
+                )
+
+            def handle_request(req):
+                u = req.url
+                if is_media_url(u):
+                    headers_dict = dict(req.headers)
+                    found_candidates.append({
+                        "url": u,
+                        "headers": headers_dict,
+                        "priority": 10 if ".m3u8" in u.lower() else (8 if ".mpd" in u.lower() else 5),
+                    })
+
+            def handle_response(res):
+                ctype = res.headers.get("content-type", "").lower()
+                u = res.url
+                if any(ad in u.lower() for ad in AD_BLOCKLIST):
+                    return
+                if any(t in ctype for t in ["application/vnd.apple.mpegurl", "application/x-mpegurl", "application/dash+xml", "video/mp4", "video/webm"]):
+                    try:
+                        headers_dict = dict(res.request.headers)
+                    except Exception:
+                        headers_dict = {}
+                    found_candidates.append({
+                        "url": u,
+                        "headers": headers_dict,
+                        "priority": 10 if "mpegurl" in ctype else (8 if "dash" in ctype else 5),
+                    })
+
+            page.on("request", handle_request)
+            page.on("response", handle_response)
+
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=timeout_s * 1000)
+            except Exception as nav_e:
+                logger.debug(f"Dynamic sniffer navigation notice on {url}: {nav_e}")
+
+            page_title = ""
+            try:
+                page_title = page.title()
+            except Exception:
+                pass
+
+            trigger_script = """() => {
+                document.querySelectorAll('video').forEach(v => {
+                    try {
+                        v.muted = true;
+                        v.play();
+                    } catch(e) {}
+                });
+                const selectors = [
+                    '.play', '.play-btn', '.vjs-big-play-button', '.jw-display-icon-container',
+                    'button[aria-label*="play" i]', 'button[title*="play" i]',
+                    '.player-poster', '.vjs-poster', '.plyr__control--overlaid',
+                    '#player', '.video-player', '[data-play]'
+                ];
+                selectors.forEach(sel => {
+                    document.querySelectorAll(sel).forEach(b => {
+                        try { b.click(); } catch(e) {}
+                    });
+                });
+            }"""
+
+            try:
+                page.evaluate(trigger_script)
+            except Exception:
+                pass
+
+            try:
+                for frame in page.frames:
+                    try:
+                        frame.evaluate(trigger_script)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            try:
+                page.wait_for_timeout(4000)
+            except Exception:
+                pass
+
+            browser.close()
+
+    except Exception as e:
+        logger.warning(f"Dynamic browser stream sniffer error: {e}")
+        return None
+
+    if not found_candidates:
+        geo_keywords = [
+            "not available in", "not supported in your country", "not available in your region",
+            "geo-restricted", "regional restriction", "geographic restrictions"
+        ]
+        is_geoblocked = any(k in page_title.lower() for k in geo_keywords) if page_title else False
+        return {
+            "stream_url": None,
+            "is_geoblocked": is_geoblocked,
+            "page_title": page_title,
+        }
+
+    def rank_candidate(c: Dict[str, Any]) -> int:
+        score = c.get("priority", 0)
+        u_low = c["url"].lower()
+        if "master.m3u8" in u_low or "index.m3u8" in u_low or "playlist.m3u8" in u_low:
+            score += 15
+        elif ".m3u8" in u_low:
+            score += 10
+        elif ".mpd" in u_low:
+            score += 5
+        return score
+
+    found_candidates.sort(key=rank_candidate, reverse=True)
+    best = found_candidates[0]
+    return {
+        "stream_url": best["url"],
+        "headers": best.get("headers", {}),
+        "title": page_title or "stream_video",
+    }
 
 
 def sanitize_filename(name: str) -> str:
@@ -697,37 +933,72 @@ class VideoDownloader:
         except Exception as ydl_err:
             logger.warning(f"yt-dlp download failed on {download_target_url}: {ydl_err}. Initiating deep webpage / direct stream fallback...")
 
-            # Check if this is an arbitrary webpage containing an embedded video
-            html, final_url = fetch_webpage_html(download_target_url)
-            discovered_video = extract_embedded_video_url(html, final_url or download_target_url) if html else None
-
-            if discovered_video and discovered_video != download_target_url:
-                logger.info(f"Discovered embedded video stream in webpage: {discovered_video}")
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        info = ydl.extract_info(discovered_video, download=True)
-                        title = sanitize_filename(info.get("title", "webpage_video"))
-                        duration = float(info.get("duration") or 0.0)
-                        filename = ydl.prepare_filename(info)
-                        cand = Path(filename).with_suffix(".mp4")
-                        if cand.exists():
-                            video_file = cand
-                        elif Path(filename).exists():
-                            video_file = Path(filename)
-                except Exception as ydl_inner_err:
-                    logger.warning(f"yt-dlp failed on discovered video: {ydl_inner_err}. Trying direct FFmpeg stream copy...")
-                    fallback_out = self.temp_dir / f"stream_{int(time.time())}.mp4"
-                    video_file = download_with_ffmpeg(discovered_video, fallback_out)
-                    title = "webpage_video"
+            # 1. If target is already a direct media stream (.mp4, .m3u8, etc.):
+            if is_direct_media_url(download_target_url):
+                logger.info(f"Target is a direct media stream. Downloading via FFmpeg: {download_target_url}...")
+                fallback_out = self.temp_dir / f"stream_{int(time.time())}.mp4"
+                video_file = download_with_ffmpeg(download_target_url, fallback_out)
+                title = sanitize_filename(Path(urllib.parse.urlparse(download_target_url).path).stem or "direct_stream")
             else:
-                # Direct FFmpeg stream copy fallback on original URL
-                if download_target_url.startswith(("http://", "https://", "rtmp://", "rtsp://", "ftp://")):
-                    logger.info(f"Trying direct FFmpeg stream download on {download_target_url}...")
-                    fallback_out = self.temp_dir / f"direct_{int(time.time())}.mp4"
-                    video_file = download_with_ffmpeg(download_target_url, fallback_out)
-                    title = sanitize_filename(Path(urllib.parse.urlparse(download_target_url).path).stem or "direct_video")
+                # 2. It's an arbitrary webpage: deep scrape for embedded streams and iframes
+                html, final_url = fetch_webpage_html(download_target_url)
+                discovered_video = extract_embedded_video_url(html, final_url or download_target_url) if html else None
+
+                if discovered_video and discovered_video != download_target_url:
+                    logger.info(f"Discovered embedded video stream in webpage: {discovered_video}")
+                    try:
+                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                            info = ydl.extract_info(discovered_video, download=True)
+                            title = sanitize_filename(info.get("title", "webpage_video"))
+                            duration = float(info.get("duration") or 0.0)
+                            filename = ydl.prepare_filename(info)
+                            cand = Path(filename).with_suffix(".mp4")
+                            if cand.exists():
+                                video_file = cand
+                            elif Path(filename).exists():
+                                video_file = Path(filename)
+                    except Exception as ydl_inner_err:
+                        logger.warning(f"yt-dlp failed on discovered video: {ydl_inner_err}. Trying direct FFmpeg stream copy...")
+                        fallback_out = self.temp_dir / f"stream_{int(time.time())}.mp4"
+                        video_file = download_with_ffmpeg(discovered_video, fallback_out, referer=download_target_url)
+                        title = "webpage_video"
                 else:
-                    raise FileNotFoundError(f"Video file not found on server: '{download_target_url}'")
+                    # 3. Dynamic Headless Browser Sniffer fallback:
+                    # Launch Playwright Chromium to inspect dynamic JavaScript players, HLS/m3u8 networks, and iframes
+                    logger.info(f"Static HTML scraping found no direct stream. Launching dynamic headless stream sniffer on {download_target_url}...")
+                    sniffed_result = sniff_webpage_stream(download_target_url)
+
+                    if sniffed_result and sniffed_result.get("stream_url"):
+                        sniffed_url = sniffed_result["stream_url"]
+                        sniffed_headers = sniffed_result.get("headers", {})
+                        logger.info(f"Dynamic sniffer captured live media stream: {sniffed_url}")
+                        fallback_out = self.temp_dir / f"sniffed_{int(time.time())}.mp4"
+                        video_file = download_with_ffmpeg(
+                            sniffed_url,
+                            fallback_out,
+                            referer=sniffed_headers.get("referer") or download_target_url,
+                            extra_headers=sniffed_headers,
+                        )
+                        title = sanitize_filename(sniffed_result.get("title") or "stream_video")
+                    elif sniffed_result and sniffed_result.get("is_geoblocked"):
+                        clean_host = urllib.parse.urlparse(download_target_url).netloc
+                        reason = sniffed_result.get("page_title") or "Regional restriction"
+                        raise ValueError(
+                            f"Content on {clean_host} is geo-blocked in your region. "
+                            f"Site response: \"{reason}\". "
+                            f"This platform restricts playback to specific countries (e.g. US only). "
+                            f"Please use a VPN, provide an accessible video link (e.g. YouTube, direct stream), "
+                            f"or upload the video file directly."
+                        )
+                    else:
+                        clean_host = urllib.parse.urlparse(download_target_url).netloc
+                        raise ValueError(
+                            f"Could not find an accessible video stream on {clean_host}. "
+                            f"Both automated extraction and the headless browser sniffer were unable to capture a playable video stream "
+                            f"(the embedded player may be offline, protected by Cloudflare/anti-bot verification, or DRM-encrypted). "
+                            f"Please provide a direct video URL (.mp4/.m3u8), a link from YouTube, Vimeo, TikTok, etc., "
+                            f"or upload the video file directly."
+                        )
 
         if not video_file or not video_file.exists():
             raise FileNotFoundError(f"Could not download or extract video from: {source}")

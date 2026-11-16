@@ -35,4 +35,6 @@ logs/
 # Distribution / packaging
 build/
 dist/
+dist-electron/
+node_modules/
 *.egg-info/

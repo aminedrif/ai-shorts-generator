@@ -1,4 +1,5 @@
 import os
+import sys
 import re
 import uuid
 import shutil
@@ -165,6 +166,41 @@ def get_video_dimensions(video_path: Path) -> Tuple[int, int]:
     return 1920, 1080
 
 
+def get_cascade_paths() -> Dict[str, str]:
+    """Resolves file paths to bundled Haar cascades."""
+    candidate_dirs = [
+        Path(__file__).resolve().parent / "cascades",
+        config.base_dir / "src" / "cascades",
+        config.base_dir / "cascades",
+    ]
+    if hasattr(sys, "_MEIPASS"):
+        candidate_dirs.append(Path(sys._MEIPASS) / "src" / "cascades")
+        candidate_dirs.append(Path(sys._MEIPASS) / "cascades")
+
+    for d in candidate_dirs:
+        alt2 = d / "haarcascade_frontalface_alt2.xml"
+        if alt2.is_file():
+            return {
+                "alt2": str(alt2),
+                "prof": str(d / "haarcascade_profileface.xml"),
+                "default": str(d / "haarcascade_frontalface_default.xml"),
+            }
+
+    try:
+        import cv2
+        cv2_data = getattr(cv2, "data", None)
+        if cv2_data and hasattr(cv2_data, "haarcascades"):
+            base = cv2_data.haarcascades
+            return {
+                "alt2": base + "haarcascade_frontalface_alt2.xml",
+                "prof": base + "haarcascade_profileface.xml",
+                "default": base + "haarcascade_frontalface_default.xml",
+            }
+    except Exception:
+        pass
+    return {}
+
+
 def detect_streamer_facecam_box(
     video_path: Path,
     start_time: float,
@@ -188,11 +224,14 @@ def detect_streamer_facecam_box(
             cap.release()
             return None
 
-        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        cascade = cv2.CascadeClassifier(cascade_path)
-        if cascade.empty():
+        cascades = get_cascade_paths()
+        if not cascades:
             cap.release()
             return None
+
+        clf_alt2 = cv2.CascadeClassifier(cascades.get("alt2", ""))
+        clf_prof = cv2.CascadeClassifier(cascades.get("prof", ""))
+        clf_def = cv2.CascadeClassifier(cascades.get("default", ""))
 
         sample_points = np.linspace(start_time, start_time + max(0.5, duration), 15)
         detected_boxes = []
@@ -204,7 +243,14 @@ def detect_streamer_facecam_box(
                 continue
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(35, 35))
+            gray = cv2.equalizeHist(gray)
+
+            faces = clf_alt2.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+            if len(faces) == 0 and not clf_prof.empty():
+                faces = clf_prof.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+            if len(faces) == 0 and not clf_def.empty():
+                faces = clf_def.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
+
             if len(faces) > 0:
                 largest = max(faces, key=lambda b: b[2] * b[3])
                 detected_boxes.append((int(largest[0]), int(largest[1]), int(largest[2]), int(largest[3])))
@@ -225,17 +271,78 @@ def detect_streamer_facecam_box(
         return None
 
 
-def detect_speaker_crop_x(
+def build_smooth_pan_expression(
+    detections: List[Tuple[float, int]],
+    duration: float,
+    max_crop: int,
+    default_crop: int,
+) -> str:
+    """
+    Builds a continuous, smooth FFmpeg time-based crop expression (piecewise linear with ease transitions)
+    that dynamically follows the active speaker without jarring jitter.
+    """
+    import numpy as np
+
+    if not detections:
+        return str(default_crop)
+
+    # Group detections into 2.0-second temporal windows
+    window_sec = 2.0
+    num_windows = max(1, int(np.ceil(duration / window_sec)))
+
+    window_targets = []
+    for w in range(num_windows):
+        t_start = w * window_sec
+        t_end = min(duration, (w + 1) * window_sec)
+        t_mid = (t_start + t_end) / 2.0
+        pts = [c for t, c in detections if t_start <= t < t_end]
+        if pts:
+            window_targets.append((t_mid, int(np.median(pts))))
+        elif window_targets:
+            window_targets.append((t_mid, window_targets[-1][1]))
+        else:
+            window_targets.append((t_mid, default_crop))
+
+    # Apply camera deadband: ignore movements < 70 pixels
+    filtered_targets = [window_targets[0]]
+    for t_mid, x in window_targets[1:]:
+        prev_x = filtered_targets[-1][1]
+        if abs(x - prev_x) < 70:
+            filtered_targets.append((t_mid, prev_x))
+        else:
+            filtered_targets.append((t_mid, x))
+
+    # If all windows point to the same target, return clean constant
+    unique_xs = set(x for _, x in filtered_targets)
+    if len(unique_xs) == 1:
+        return str(list(unique_xs)[0])
+
+    # Construct nested FFmpeg if expression with smooth ease transitions
+    expr = str(filtered_targets[-1][1])
+    for i in range(len(filtered_targets) - 2, -1, -1):
+        t1, x1 = filtered_targets[i]
+        t2, x2 = filtered_targets[i + 1]
+        if x1 == x2:
+            expr = f"if(lt(t,{t2:.2f}),{x1},{expr})"
+        else:
+            trans_dur = min(1.0, max(0.5, (t2 - t1) * 0.4))
+            t_trans_start = max(0.0, t2 - trans_dur)
+            lerp = f"{x1}+({x2}-{x1})*(t-{t_trans_start:.2f})/{trans_dur:.2f}"
+            expr = f"if(lt(t,{t_trans_start:.2f}),{x1},if(lt(t,{t2:.2f}),{lerp},{expr}))"
+
+    return f"min({max_crop},max(0,{expr}))"
+
+
+def detect_dynamic_speaker_crop_expression(
     video_path: Path,
     start_time: float,
     duration: float,
     target_w: int = 1080,
     target_h: int = 1920,
-) -> int:
+) -> str:
     """
-    Analyzes video frames across the clip interval using OpenCV face detection
-    to find the optimal horizontal crop offset that keeps the active speaker centered.
-    Returns the X pixel offset for crop, or -1 to fallback to standard center.
+    Analyzes video frames across the clip using bundled multi-angle face cascades
+    and generates a dynamic, camera-following FFmpeg crop expression centered on the speaker.
     """
     try:
         import cv2
@@ -243,59 +350,131 @@ def detect_speaker_crop_x(
 
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
-            return -1
+            return f"(in_w-{target_w})/2"
 
-        orig_w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-        orig_h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        orig_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        orig_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+
         if orig_h <= 0 or orig_w <= 0:
-            cap.release()
-            return -1
+            return f"(in_w-{target_w})/2"
 
         scale = target_h / orig_h
         scaled_w = int(orig_w * scale)
         if scaled_w <= target_w:
-            cap.release()
-            return 0
+            return "0"
 
-        default_crop_x = (scaled_w - target_w) // 2
+        max_crop_x = scaled_w - target_w
+        default_crop_x = max_crop_x // 2
 
-        cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        cascade = cv2.CascadeClassifier(cascade_path)
-        if cascade.empty():
-            cap.release()
-            return default_crop_x
+        cascades = get_cascade_paths()
+        if not cascades:
+            return f"{default_crop_x}"
 
-        sample_points = np.linspace(start_time, start_time + max(0.5, duration), 12)
-        crop_candidates = []
+        clf_alt2 = cv2.CascadeClassifier(cascades.get("alt2", ""))
+        clf_prof = cv2.CascadeClassifier(cascades.get("prof", ""))
+        clf_def = cv2.CascadeClassifier(cascades.get("default", ""))
 
-        for sec in sample_points:
-            cap.set(cv2.CAP_PROP_POS_MSEC, float(sec) * 1000)
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                continue
+        # Fast frame sampling using FFmpeg pipe
+        sample_fps = 2
+        thumb_w = 360
+        thumb_h = int(thumb_w * orig_h / orig_w)
+        frame_bytes_len = thumb_w * thumb_h * 3
+
+        cmd = [
+            get_ffmpeg_bin(),
+            "-y",
+            "-ss", f"{start_time:.2f}",
+            "-i", str(video_path),
+            "-t", f"{duration:.2f}",
+            "-vf", f"fps={sample_fps},scale={thumb_w}:{thumb_h}",
+            "-f", "rawvideo",
+            "-pix_fmt", "bgr24",
+            "-vcodec", "rawvideo",
+            "-",
+        ]
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+        )
+        raw_data, _ = proc.communicate(timeout=15)
+
+        num_frames = len(raw_data) // frame_bytes_len
+        if num_frames == 0:
+            return f"{default_crop_x}"
+
+        detections: List[Tuple[float, int]] = []
+
+        for i in range(num_frames):
+            t_rel = round(i / sample_fps, 2)
+            chunk = raw_data[i * frame_bytes_len : (i + 1) * frame_bytes_len]
+            frame = np.frombuffer(chunk, dtype=np.uint8).reshape((thumb_h, thumb_w, 3))
 
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40))
+            gray = cv2.equalizeHist(gray)
+
+            # 1. Frontal alt2 (high accuracy)
+            faces = clf_alt2.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
+            if len(faces) == 0 and not clf_prof.empty():
+                # 2. Profile right
+                faces = clf_prof.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
+                if len(faces) == 0:
+                    # 3. Profile left (flipped)
+                    flipped = cv2.flip(gray, 1)
+                    ffaces = clf_prof.detectMultiScale(flipped, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
+                    if len(ffaces) > 0:
+                        faces = np.array([[thumb_w - f[0] - f[2], f[1], f[2], f[3]] for f in ffaces])
+
+            if len(faces) == 0 and not clf_def.empty():
+                faces = clf_def.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
+
             if len(faces) > 0:
-                largest = max(faces, key=lambda b: b[2] * b[3])
-                face_cx = largest[0] + largest[2] / 2
-                scaled_cx = face_cx * scale
-                ideal_x = int(scaled_cx - target_w / 2)
-                clamped_x = max(0, min(scaled_w - target_w, ideal_x))
-                crop_candidates.append(clamped_x)
+                valid_faces = [f for f in faces if (f[1] + f[3] / 2) < thumb_h * 0.85]
+                chosen = valid_faces if valid_faces else faces
+                best = max(chosen, key=lambda f: f[2] * f[3] * (1.2 if (f[1] + f[3] / 2) < thumb_h * 0.6 else 1.0))
 
-        cap.release()
+                face_center_x = (best[0] + best[2] / 2.0) * (orig_w / thumb_w)
+                scaled_x = face_center_x * scale
+                target_crop = int(scaled_x - target_w / 2.0)
+                clamped_crop = max(0, min(max_crop_x, target_crop))
+                detections.append((t_rel, clamped_crop))
 
-        if crop_candidates:
-            median_crop = int(np.median(crop_candidates))
-            logger.info(f"Smart face-tracking framing: crop_x={median_crop} (center was {default_crop_x})")
-            return median_crop
+        if not detections:
+            logger.info("Face tracking: no clear speaker face detected, using center framing.")
+            return f"{default_crop_x}"
 
-        return default_crop_x
+        crops = [d[1] for d in detections]
+        spread = max(crops) - min(crops)
+
+        if spread < 80:
+            median_crop = int(np.median(crops))
+            logger.info(f"Smart face-tracking: stationary speaker centered at crop_x={median_crop} (center was {default_crop_x})")
+            return f"{median_crop}"
+
+        logger.info(f"Smart face-tracking: dynamic camera tracking activated (spread={spread}px across {len(detections)} frames)")
+        return build_smooth_pan_expression(detections, duration, max_crop_x, default_crop_x)
 
     except Exception as e:
-        logger.warning(f"Face tracking auto-framing fell back to center crop: {e}")
-        return -1
+        logger.warning(f"Smart face tracking error, defaulting to center crop: {e}")
+        return f"(in_w-{target_w})/2"
+
+
+def detect_speaker_crop_x(
+    video_path: Path,
+    start_time: float,
+    duration: float,
+    target_w: int = 1080,
+    target_h: int = 1920,
+) -> int:
+    """Legacy helper returning static integer crop offset."""
+    expr = detect_dynamic_speaker_crop_expression(video_path, start_time, duration, target_w, target_h)
+    try:
+        return int(expr)
+    except ValueError:
+        return (1080 - target_w) // 2
 
 
 class VideoEditor:
@@ -612,11 +791,10 @@ class VideoEditor:
                     f"scale={target_w}:{target_h}:flags=lanczos[vcomposed]"
                 )
             else:
-                crop_x = detect_speaker_crop_x(video_path, crop_sample_start, duration, target_w, target_h)
-                crop_expr = f"{crop_x}:0" if crop_x >= 0 else f"(in_w-{target_w})/2:0"
+                crop_expr = detect_dynamic_speaker_crop_expression(video_path, crop_sample_start, duration, target_w, target_h)
                 filter_complex.append(
                     f"[0:v]scale=-1:{target_h}:flags=lanczos,"
-                    f"crop={target_w}:{target_h}:{crop_expr}[vcomposed]"
+                    f"crop={target_w}:{target_h}:x=\'{crop_expr}\':y=0[vcomposed]"
                 )
             current_video_label = "[vcomposed]"
         elif style == "blurred_background":
@@ -629,15 +807,10 @@ class VideoEditor:
             )
             current_video_label = "[vcomposed]"
         elif style in ("smart_crop", "crop_smart"):
-            crop_x = detect_speaker_crop_x(video_path, crop_sample_start, duration, target_w, target_h)
-            if crop_x >= 0:
-                crop_expr = f"{crop_x}:0"
-            else:
-                crop_expr = f"(in_w-{target_w})/2:0"
-
+            crop_expr = detect_dynamic_speaker_crop_expression(video_path, crop_sample_start, duration, target_w, target_h)
             filter_complex.append(
                 f"[0:v]scale=-1:{target_h}:flags=lanczos,"
-                f"crop={target_w}:{target_h}:{crop_expr}[vcomposed]"
+                f"crop={target_w}:{target_h}:x=\'{crop_expr}\':y=0[vcomposed]"
             )
             current_video_label = "[vcomposed]"
         else:

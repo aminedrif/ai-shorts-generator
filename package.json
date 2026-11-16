@@ -1,0 +1,49 @@
+{
+  "name": "asg-studio",
+  "version": "1.0.0",
+  "description": "A-S-G Studio - AI Shorts Generator Desktop",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.asg.studio",
+    "productName": "A-S-G Studio",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "web/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "web/assets/icon.ico"
+    },
+    "extraResources": [
+      {
+        "from": "dist/AIShortsGenerator",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  },
+  "author": "ASG",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "28.3.3",
+    "electron-builder": "^26.18.0"
+  }
+}

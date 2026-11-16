@@ -12,3 +12,4 @@ python-multipart>=0.0.9
 nvidia-cublas-cu12>=12.1.0; sys_platform == 'win32'
 arabic-reshaper>=3.0.0
 python-bidi>=0.4.2
+playwright>=1.40.0

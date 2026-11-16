@@ -434,18 +434,19 @@ if __name__ == "__main__":
 
     is_frozen = getattr(sys, "frozen", False)
     if is_frozen:
-        # In frozen PyInstaller app, suppress reload and auto-open browser
-        def open_browser():
-            time.sleep(1.2)
-            try:
-                webbrowser.open("http://localhost:8000")
-            except Exception:
-                pass
+        no_browser = "--no-browser" in sys.argv or os.getenv("ELECTRON_RUN") == "1"
+        if not no_browser:
+            def open_browser():
+                time.sleep(1.2)
+                try:
+                    webbrowser.open("http://localhost:8000")
+                except Exception:
+                    pass
+            threading.Thread(target=open_browser, daemon=True).start()
 
-        threading.Thread(target=open_browser, daemon=True).start()
         print("=" * 60)
-        print("  AI Shorts Generator is running!")
-        print("  Web Interface: http://localhost:8000")
+        print("  A-S-G Studio Engine is running!")
+        print("  Backend API: http://localhost:8000")
         print("=" * 60)
         uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
     else:

@@ -37,6 +37,7 @@ def build():
         "--console",
         "--name", "AIShortsGenerator",
         "--add-data", f"{BASE_DIR / 'web'}{os.pathsep}web",
+        "--add-data", f"{BASE_DIR / 'src' / 'cascades'}{os.pathsep}src/cascades",
         "--collect-all", "faster_whisper",
         "--collect-all", "ctranslate2",
         "--collect-all", "uvicorn",
@@ -91,6 +92,11 @@ def build():
     if not web_target.exists():
         print(f"Copying web folder -> {web_target}...")
         shutil.copytree(BASE_DIR / "web", web_target, dirs_exist_ok=True)
+
+    # Copy bundled cascades
+    cascades_target = dist_dir / "src" / "cascades"
+    cascades_target.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(BASE_DIR / "src" / "cascades", cascades_target, dirs_exist_ok=True)
 
     # 3. Copy .env or .env.example
     env_target = dist_dir / ".env"

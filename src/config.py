@@ -7,6 +7,12 @@ from dotenv import load_dotenv
 
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys.executable).resolve().parent
+    # If running inside Electron extraResources (.../resources/backend),
+    # also check for .env in the top-level application directory next to A-S-G Studio.exe
+    if BASE_DIR.parent.name == "resources":
+        electron_app_dir = BASE_DIR.parent.parent
+        if (electron_app_dir / ".env").exists():
+            load_dotenv(electron_app_dir / ".env")
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -14,15 +20,22 @@ else:
 load_dotenv(BASE_DIR / ".env")
 load_dotenv()
 
+def resolve_app_root() -> Path:
+    if getattr(sys, "frozen", False) and BASE_DIR.parent.name == "resources":
+        return BASE_DIR.parent.parent
+    return BASE_DIR
+
+APP_ROOT = resolve_app_root()
+
 
 @dataclass
 class AppConfig:
     # Project paths
     base_dir: Path = BASE_DIR
-    output_dir: Path = BASE_DIR / os.getenv("OUTPUT_DIR", "output")
-    temp_dir: Path = BASE_DIR / os.getenv("TEMP_DIR", "temp")
-
-    logs_dir: Path = BASE_DIR / os.getenv("LOGS_DIR", "logs")
+    app_root: Path = APP_ROOT
+    output_dir: Path = APP_ROOT / os.getenv("OUTPUT_DIR", "output")
+    temp_dir: Path = APP_ROOT / os.getenv("TEMP_DIR", "temp")
+    logs_dir: Path = APP_ROOT / os.getenv("LOGS_DIR", "logs")
 
     # LLM Settings
     llm_provider: str = os.getenv("LLM_PROVIDER", "gemini").lower()

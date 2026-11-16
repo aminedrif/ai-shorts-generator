@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('web', 'web')]
+datas = [('D:\\github\\short-video-generator-AI\\web', 'web'), ('D:\\github\\short-video-generator-AI\\src\\cascades', 'src/cascades')]
 binaries = []
 hiddenimports = ['uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto', 'uvicorn.protocols', 'uvicorn.protocols.http', 'uvicorn.protocols.http.auto', 'uvicorn.protocols.websockets', 'uvicorn.protocols.websockets.auto', 'uvicorn.lifespan', 'uvicorn.lifespan.on', 'dotenv', 'cv2', 'imageio_ffmpeg']
 tmp_ret = collect_all('faster_whisper')
@@ -17,7 +17,7 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['server.py'],
+    ['D:\\github\\short-video-generator-AI\\server.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
