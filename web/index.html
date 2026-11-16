@@ -1608,6 +1608,430 @@
       transform: translateY(0);
       opacity: 1;
     }
+
+    /* Studio Video Editor Modal Styles */
+    .edit-clip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: #fafafa;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .edit-clip-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    .edit-clip-btn svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .editor-modal-card {
+      width: 95%;
+      max-width: 940px;
+      max-height: 90vh;
+      background: #121215;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      animation: modalIn 0.22s ease-out;
+    }
+
+    .editor-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      background: #18181c;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .editor-icon-pill {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fafafa;
+    }
+
+    .editor-modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .editor-modal-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 2px 0 0;
+    }
+
+    .editor-close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .editor-close-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .editor-modal-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      gap: 24px;
+    }
+
+    @media (min-width: 768px) {
+      .editor-modal-body {
+        flex-direction: row;
+        align-items: stretch;
+      }
+    }
+
+    .editor-preview-column {
+      flex: 0 0 270px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .editor-preview-viewport {
+      width: 240px;
+      height: 426px;
+      background: #000000;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .editor-canvas-wrap {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050507;
+    }
+
+    .editor-preview-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.15s ease, filter 0.2s ease;
+    }
+
+    .editor-framing-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-size: 11px;
+      font-weight: 600;
+      color: #fafafa;
+      pointer-events: none;
+    }
+
+    .editor-preview-hint {
+      font-size: 11px;
+      color: var(--text-subtle);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-align: center;
+    }
+
+    .editor-controls-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .editor-section {
+      background: #18181c;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .editor-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .editor-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .editor-tag-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .editor-presets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .editor-preset-pill {
+      height: 32px;
+      border-radius: 6px;
+      background: #27272a;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .editor-preset-pill:hover {
+      background: #3f3f46;
+      color: #ffffff;
+    }
+
+    .editor-preset-pill.active {
+      background: #ffffff;
+      color: #09090b;
+      font-weight: 600;
+      border-color: #ffffff;
+    }
+
+    .editor-slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .editor-slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .editor-range-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #27272a;
+      outline: none;
+      accent-color: #ffffff;
+      cursor: pointer;
+    }
+
+    .editor-sub-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-subtle);
+    }
+
+    .editor-filters-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+    }
+
+    .editor-filter-btn {
+      height: 32px;
+      border-radius: 6px;
+      background: #27272a;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .editor-filter-btn:hover {
+      background: #3f3f46;
+      color: #ffffff;
+    }
+
+    .editor-filter-btn.active {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.4);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .editor-subtitles-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .editor-sublabel {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .editor-pill-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .editor-pill-sm {
+      flex: 1;
+      height: 28px;
+      border-radius: 6px;
+      background: #27272a;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .editor-pill-sm.active {
+      background: #ffffff;
+      color: #09090b;
+      font-weight: 600;
+    }
+
+    .editor-colors-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      height: 28px;
+    }
+
+    .editor-color-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+
+    .editor-color-dot:hover {
+      transform: scale(1.15);
+    }
+
+    .editor-color-dot.active {
+      border-color: #ffffff;
+      transform: scale(1.2);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+    }
+
+    .editor-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: #18181c;
+      border-top: 1px solid var(--border);
+    }
+
+    .editor-render-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .editor-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 6px #34d399;
+    }
+
+    .editor-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .editor-btn-apply {
+      padding: 9px 18px;
+      border-radius: 6px;
+      background: #ffffff;
+      border: none;
+      color: #09090b;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .editor-btn-apply:hover:not(:disabled) {
+      background: #f4f4f5;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+    }
+
+    .editor-btn-apply:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -2170,6 +2594,192 @@
     </section>
 
   </main>
+
+  <!-- Studio Video Editor Modal -->
+  <div class="modal-overlay" id="editorModalOverlay">
+    <div class="editor-modal-card">
+      <!-- Modal Header -->
+      <div class="editor-modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="editor-icon-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="editor-modal-title" id="editorModalTitle">Edit Short Clip</h3>
+            <p class="editor-modal-subtitle">Interactive Camera Framing, Zoom Punch-in & Cinematic Filters</p>
+          </div>
+        </div>
+        <button type="button" class="editor-close-btn" onclick="closeEditorModal()" title="Close Editor">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body (Two Columns: Left Live 9:16 Canvas, Right Control Inspector) -->
+      <div class="editor-modal-body">
+        <!-- Left: Live Interactive 9:16 Canvas -->
+        <div class="editor-preview-column">
+          <div class="editor-preview-viewport">
+            <div class="editor-canvas-wrap" id="editorCanvasWrap">
+              <video id="editorPreviewVideo" class="editor-preview-video" playsinline controls loop></video>
+              <!-- Live framing guide overlay -->
+              <div class="editor-framing-badge" id="editorFramingBadge">
+                <span id="editorFramingText">Center Focus (1.0x)</span>
+              </div>
+            </div>
+          </div>
+          <div class="editor-preview-hint">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            Live real-time preview of framing, zoom & grade
+          </div>
+        </div>
+
+        <!-- Right: Control Inspector Panel -->
+        <div class="editor-controls-column">
+          
+          <!-- 1. Camera & Framing Presets -->
+          <div class="editor-section">
+            <div class="editor-section-header">
+              <span class="editor-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                Camera Framing & Tracking
+              </span>
+              <span class="editor-tag-badge" id="editorCurrentModeBadge">Center Focus</span>
+            </div>
+            <div class="editor-presets-grid">
+              <button type="button" class="editor-preset-pill active" id="btnModeCenter" onclick="setEditorCameraMode('center')">Center</button>
+              <button type="button" class="editor-preset-pill" id="btnModeLeft" onclick="setEditorCameraMode('left')">Left Speaker</button>
+              <button type="button" class="editor-preset-pill" id="btnModeRight" onclick="setEditorCameraMode('right')">Right Speaker</button>
+              <button type="button" class="editor-preset-pill" id="btnModeAuto" onclick="setEditorCameraMode('auto')">Auto AI Track</button>
+              <button type="button" class="editor-preset-pill" id="btnModeSplit" onclick="setEditorCameraMode('split_screen')">Split Screen</button>
+            </div>
+            <div class="editor-slider-row" id="panSliderRow">
+              <div class="editor-slider-labels">
+                <span>Horizontal Pan</span>
+                <span id="editorPanValue">50%</span>
+              </div>
+              <input type="range" id="editorPanSlider" min="0" max="100" value="50" class="editor-range-slider" oninput="handlePanChange(this.value)">
+              <div class="editor-sub-labels">
+                <span>Left Focus</span>
+                <span>Center</span>
+                <span>Right Focus</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Zoom & Punch-in -->
+          <div class="editor-section">
+            <div class="editor-section-header">
+              <span class="editor-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  <line x1="11" y1="8" x2="11" y2="14"/>
+                  <line x1="8" y1="11" x2="14" y2="11"/>
+                </svg>
+                Zoom & Punch-in
+              </span>
+              <span class="editor-tag-badge" id="editorZoomBadge">1.0x (Wide)</span>
+            </div>
+            <div class="editor-slider-row">
+              <input type="range" id="editorZoomSlider" min="100" max="150" value="100" step="5" class="editor-range-slider" oninput="handleZoomChange(this.value)">
+              <div class="editor-sub-labels">
+                <span>1.0x Standard</span>
+                <span>1.25x Punch-in</span>
+                <span>1.5x Close-up</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Cinematic Color Grading Filters -->
+          <div class="editor-section">
+            <div class="editor-section-header">
+              <span class="editor-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 2a10 10 0 0 0 0 20z"/>
+                </svg>
+                Cinematic Color Grading
+              </span>
+              <span class="editor-tag-badge" id="editorFilterBadge">None</span>
+            </div>
+            <div class="editor-filters-grid">
+              <button type="button" class="editor-filter-btn active" id="btnFilter_none" onclick="setEditorFilter('none')">Original</button>
+              <button type="button" class="editor-filter-btn" id="btnFilter_moody" onclick="setEditorFilter('moody')">Moody Dark</button>
+              <button type="button" class="editor-filter-btn" id="btnFilter_teal_orange" onclick="setEditorFilter('teal_orange')">Teal & Orange</button>
+              <button type="button" class="editor-filter-btn" id="btnFilter_vintage" onclick="setEditorFilter('vintage')">Vintage 35mm</button>
+              <button type="button" class="editor-filter-btn" id="btnFilter_crisp" onclick="setEditorFilter('crisp')">Crisp 4K</button>
+              <button type="button" class="editor-filter-btn" id="btnFilter_noir" onclick="setEditorFilter('noir')">B&W Noir</button>
+            </div>
+          </div>
+
+          <!-- 4. Subtitle Position & Highlight Color -->
+          <div class="editor-section">
+            <div class="editor-section-header">
+              <span class="editor-section-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 7V4h16v3"/>
+                  <line x1="9" y1="20" x2="15" y2="20"/>
+                  <line x1="12" y1="4" x2="12" y2="20"/>
+                </svg>
+                Captions & Subtitles
+              </span>
+            </div>
+            <div class="editor-subtitles-options">
+              <div>
+                <label class="editor-sublabel">Position</label>
+                <div class="editor-pill-group">
+                  <button type="button" class="editor-pill-sm active" id="btnCapPos_bottom" onclick="setEditorCaptionPos('bottom')">Bottom</button>
+                  <button type="button" class="editor-pill-sm" id="btnCapPos_center" onclick="setEditorCaptionPos('center')">Center</button>
+                  <button type="button" class="editor-pill-sm" id="btnCapPos_top" onclick="setEditorCaptionPos('top')">Top</button>
+                </div>
+              </div>
+              <div>
+                <label class="editor-sublabel">Highlight Color</label>
+                <div class="editor-colors-row">
+                  <button type="button" class="editor-color-dot active" style="background: #facc15;" onclick="setEditorCaptionColor('#facc15', this)" title="Yellow"></button>
+                  <button type="button" class="editor-color-dot" style="background: #34d399;" onclick="setEditorCaptionColor('#34d399', this)" title="Emerald"></button>
+                  <button type="button" class="editor-color-dot" style="background: #38bdf8;" onclick="setEditorCaptionColor('#38bdf8', this)" title="Cyan"></button>
+                  <button type="button" class="editor-color-dot" style="background: #f87171;" onclick="setEditorCaptionColor('#f87171', this)" title="Coral"></button>
+                  <button type="button" class="editor-color-dot" style="background: #fafafa;" onclick="setEditorCaptionColor('#fafafa', this)" title="Pure White"></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="editor-modal-footer">
+        <div class="editor-render-status" id="editorRenderStatus">
+          <span class="editor-status-dot"></span>
+          Ready to export
+        </div>
+        <div class="editor-footer-actions">
+          <button type="button" class="modal-btn-cancel" onclick="closeEditorModal()">Cancel</button>
+          <button type="button" class="editor-btn-apply" id="applyReRenderBtn" onclick="submitReRender()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Apply & Re-Render Clip
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Delete Confirmation Modal -->
   <div class="modal-overlay" id="deleteModalOverlay">
@@ -3229,6 +3839,20 @@
                       </select>
                     </div>
 
+                    <!-- STUDIO VIDEO EDITOR BUTTON -->
+                    <button 
+                      type="button" 
+                      class="edit-clip-btn" 
+                      title="Open Studio Editor (Camera Reframing, Zoom & Filters)"
+                      onclick="openEditorModal('${escapeHtml(clip.name)}', '${escapeHtml(clip.title || clip.name)}', '${clip.download_url}')"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                      </svg>
+                      Edit Clip
+                    </button>
+
                     <!-- PLAY IN IPHONE BUTTON -->
                     <button 
                       type="button" 
@@ -3367,6 +3991,241 @@
       setTimeout(() => {
         toast.classList.remove('show');
       }, 3500);
+    }
+
+    // ==========================================
+    // STUDIO VIDEO EDITOR (CAMERA, ZOOM & FILTERS)
+    // ==========================================
+    let currentEditingClip = {
+      filename: '',
+      title: '',
+      url: '',
+      cameraMode: 'center',
+      panPercent: 50,
+      zoom: 1.0,
+      filterPreset: 'none',
+      captionPos: 'bottom',
+      highlightColor: '#facc15',
+    };
+
+    function openEditorModal(filename, title, downloadUrl) {
+      currentEditingClip.filename = filename;
+      currentEditingClip.title = title;
+      currentEditingClip.url = downloadUrl;
+      currentEditingClip.cameraMode = 'center';
+      currentEditingClip.panPercent = 50;
+      currentEditingClip.zoom = 1.0;
+      currentEditingClip.filterPreset = 'none';
+      currentEditingClip.captionPos = 'bottom';
+      currentEditingClip.highlightColor = '#facc15';
+
+      document.getElementById('editorModalTitle').innerText = `Edit: ${title}`;
+      const video = document.getElementById('editorPreviewVideo');
+      video.src = downloadUrl;
+      video.currentTime = 0;
+      video.play().catch(() => {});
+
+      // Reset controls in UI
+      setEditorCameraMode('center', false);
+      document.getElementById('editorPanSlider').value = 50;
+      document.getElementById('editorPanValue').innerText = '50%';
+      document.getElementById('editorZoomSlider').value = 100;
+      document.getElementById('editorZoomBadge').innerText = '1.0x (Wide)';
+      setEditorFilter('none', false);
+      setEditorCaptionPos('bottom', false);
+
+      updateEditorLivePreview();
+
+      const overlay = document.getElementById('editorModalOverlay');
+      overlay.classList.add('active');
+    }
+
+    function closeEditorModal() {
+      const video = document.getElementById('editorPreviewVideo');
+      video.pause();
+      video.src = '';
+      const overlay = document.getElementById('editorModalOverlay');
+      overlay.classList.remove('active');
+    }
+
+    function setEditorCameraMode(mode, doUpdate = true) {
+      currentEditingClip.cameraMode = mode;
+      document.querySelectorAll('.editor-preset-pill').forEach(b => b.classList.remove('active'));
+
+      const badge = document.getElementById('editorCurrentModeBadge');
+      const panRow = document.getElementById('panSliderRow');
+
+      if (mode === 'center') {
+        document.getElementById('btnModeCenter')?.classList.add('active');
+        currentEditingClip.panPercent = 50;
+        document.getElementById('editorPanSlider').value = 50;
+        document.getElementById('editorPanValue').innerText = '50%';
+        badge.innerText = 'Center Focus';
+        if (panRow) panRow.style.opacity = '1';
+      } else if (mode === 'left') {
+        document.getElementById('btnModeLeft')?.classList.add('active');
+        currentEditingClip.panPercent = 18;
+        document.getElementById('editorPanSlider').value = 18;
+        document.getElementById('editorPanValue').innerText = '18%';
+        badge.innerText = 'Left Speaker';
+        if (panRow) panRow.style.opacity = '1';
+      } else if (mode === 'right') {
+        document.getElementById('btnModeRight')?.classList.add('active');
+        currentEditingClip.panPercent = 82;
+        document.getElementById('editorPanSlider').value = 82;
+        document.getElementById('editorPanValue').innerText = '82%';
+        badge.innerText = 'Right Speaker';
+        if (panRow) panRow.style.opacity = '1';
+      } else if (mode === 'auto') {
+        document.getElementById('btnModeAuto')?.classList.add('active');
+        badge.innerText = 'Auto AI Track';
+        if (panRow) panRow.style.opacity = '0.5';
+      } else if (mode === 'split_screen') {
+        document.getElementById('btnModeSplit')?.classList.add('active');
+        badge.innerText = 'Split Screen (Top/Bot)';
+        if (panRow) panRow.style.opacity = '0.5';
+      }
+
+      if (doUpdate) updateEditorLivePreview();
+    }
+
+    function handlePanChange(val) {
+      currentEditingClip.panPercent = parseInt(val) || 50;
+      currentEditingClip.cameraMode = 'custom';
+      document.querySelectorAll('.editor-preset-pill').forEach(b => b.classList.remove('active'));
+      document.getElementById('editorCurrentModeBadge').innerText = `Custom Pan (${val}%)`;
+      document.getElementById('editorPanValue').innerText = `${val}%`;
+      updateEditorLivePreview();
+    }
+
+    function handleZoomChange(val) {
+      const z = (parseInt(val) || 100) / 100.0;
+      currentEditingClip.zoom = z;
+      const label = z === 1.0 ? '1.0x (Wide)' : (z >= 1.4 ? `${z.toFixed(2)}x (Close-up)` : `${z.toFixed(2)}x (Punch-in)`);
+      document.getElementById('editorZoomBadge').innerText = label;
+      updateEditorLivePreview();
+    }
+
+    function setEditorFilter(preset, doUpdate = true) {
+      currentEditingClip.filterPreset = preset;
+      document.querySelectorAll('.editor-filter-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`btnFilter_${preset}`)?.classList.add('active');
+
+      const labels = {
+        none: 'None',
+        moody: 'Moody Dark',
+        teal_orange: 'Teal & Orange',
+        vintage: 'Vintage 35mm',
+        crisp: 'Crisp 4K',
+        noir: 'B&W Noir',
+      };
+      document.getElementById('editorFilterBadge').innerText = labels[preset] || 'Custom';
+      if (doUpdate) updateEditorLivePreview();
+    }
+
+    function setEditorCaptionPos(pos, doUpdate = true) {
+      currentEditingClip.captionPos = pos;
+      document.querySelectorAll('.editor-pill-sm').forEach(b => b.classList.remove('active'));
+      document.getElementById(`btnCapPos_${pos}`)?.classList.add('active');
+    }
+
+    function setEditorCaptionColor(hex, el) {
+      currentEditingClip.highlightColor = hex;
+      document.querySelectorAll('.editor-color-dot').forEach(b => b.classList.remove('active'));
+      if (el) el.classList.add('active');
+    }
+
+    function updateEditorLivePreview() {
+      const video = document.getElementById('editorPreviewVideo');
+      if (!video) return;
+
+      const z = currentEditingClip.zoom || 1.0;
+      const pan = currentEditingClip.panPercent; // 0 (left) to 100 (right)
+
+      const maxShift = 25 * (z - 0.7);
+      const shiftX = (50 - pan) * (maxShift / 50);
+
+      video.style.transform = `scale(${z}) translateX(${shiftX.toFixed(1)}%)`;
+
+      const CSS_FILTERS = {
+        none: 'none',
+        moody: 'contrast(1.15) brightness(0.96) saturate(0.90)',
+        teal_orange: 'contrast(1.12) saturate(1.20) hue-rotate(-8deg)',
+        vintage: 'sepia(0.20) contrast(1.08) brightness(1.02) saturate(0.92)',
+        crisp: 'contrast(1.25) saturate(1.15) brightness(1.02)',
+        noir: 'grayscale(1) contrast(1.3) brightness(0.95)',
+      };
+      video.style.filter = CSS_FILTERS[currentEditingClip.filterPreset] || 'none';
+
+      const badgeText = document.getElementById('editorFramingText');
+      if (badgeText) {
+        let modeLabel = 'Center Focus';
+        if (currentEditingClip.cameraMode === 'left') modeLabel = 'Left Speaker';
+        else if (currentEditingClip.cameraMode === 'right') modeLabel = 'Right Speaker';
+        else if (currentEditingClip.cameraMode === 'auto') modeLabel = 'AI Face Tracking';
+        else if (currentEditingClip.cameraMode === 'split_screen') modeLabel = 'Split Screen (Top/Bot)';
+        else modeLabel = `Pan ${pan}%`;
+
+        badgeText.innerText = `${modeLabel} (${z.toFixed(2)}x)`;
+      }
+    }
+
+    async function submitReRender() {
+      const btn = document.getElementById('applyReRenderBtn');
+      const statusEl = document.getElementById('editorRenderStatus');
+      const originalText = btn.innerHTML;
+
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
+          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10"/>
+        </svg>
+        Re-Rendering (FFmpeg)...
+      `;
+      if (statusEl) {
+        statusEl.innerHTML = `<span class="editor-status-dot" style="background:#facc15; box-shadow:0 0 6px #facc15;"></span> Applying framing, zoom & grade...`;
+      }
+
+      try {
+        const payload = {
+          clip_filename: currentEditingClip.filename,
+          camera_mode: currentEditingClip.cameraMode,
+          crop_x_percent: currentEditingClip.panPercent / 100.0,
+          zoom: currentEditingClip.zoom,
+          filter_preset: currentEditingClip.filterPreset,
+          highlight_color: currentEditingClip.highlightColor,
+          caption_position: currentEditingClip.captionPos,
+        };
+
+        const response = await fetch('/api/clips/re-render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.detail || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        showToast('Clip re-rendered successfully!');
+        closeEditorModal();
+
+        // Refresh clips list so user sees updated video
+        await fetchClips();
+
+      } catch (err) {
+        console.error('Re-render error:', err);
+        showToast(`Re-render failed: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (statusEl) {
+          statusEl.innerHTML = `<span class="editor-status-dot"></span> Ready to export`;
+        }
+      }
     }
   </script>
 </body>

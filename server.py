@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from src.config import config
 from src.pipeline import ShortsPipeline
 from src.downloader import VideoDownloader, sanitize_filename, find_local_video
+from src.editor import VideoEditor
 from src.logger import logger, error_tracker, track_error
 
 app = FastAPI(title="AI Shorts Generator API", version="1.0.0")
@@ -363,6 +364,40 @@ def delete_clip(filename: str):
         return {"status": "deleted", "filename": clean_name}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete clip: {e}")
+
+
+class ReRenderRequest(BaseModel):
+    clip_filename: str
+    camera_mode: str = "custom"
+    crop_x_percent: float = 0.5
+    zoom: float = 1.0
+    filter_preset: str = "none"
+    highlight_color: Optional[str] = None
+    caption_position: str = "bottom"
+    font_name: Optional[str] = "Montserrat"
+    font_size: Optional[int] = 64
+
+
+@app.post("/api/clips/re-render")
+def re_render_clip_endpoint(req: ReRenderRequest):
+    """Re-renders an existing clip with custom camera framing, zoom, color filters, and subtitle styles."""
+    try:
+        editor = VideoEditor(output_dir=config.output_dir, temp_dir=config.temp_dir)
+        res = editor.re_render_clip(
+            clip_filename=req.clip_filename,
+            camera_mode=req.camera_mode,
+            crop_x_percent=req.crop_x_percent,
+            zoom=req.zoom,
+            filter_preset=req.filter_preset,
+            highlight_color=req.highlight_color,
+            caption_position=req.caption_position,
+            font_name=req.font_name,
+            font_size=req.font_size,
+        )
+        return {"status": "ok", "clip": res}
+    except Exception as e:
+        logger.error(f"Re-render endpoint error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/errors")

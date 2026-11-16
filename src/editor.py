@@ -1,13 +1,15 @@
 import os
 import sys
 import re
+import time
+import json
 import uuid
 import shutil
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from src.config import config, get_ffmpeg_bin, is_nvenc_available
-from src.downloader import sanitize_filename
+from src.downloader import sanitize_filename, get_media_duration
 from src.logger import logger, track_error
 
 
@@ -539,6 +541,7 @@ class VideoEditor:
         highlight_color: str = "#facc15",
         font_name: str = "Montserrat",
         font_size: int = 64,
+        margin_v: int = 280,
     ) -> Path:
         """
         Generates an ASS subtitle file with animated karaoke active-word highlighting,
@@ -548,6 +551,7 @@ class VideoEditor:
         ass_highlight = hex_to_ass_color(highlight_color, default="&H0015CCFA")
         clean_font = font_name.strip() if font_name else "Montserrat"
         font_size = int(font_size) if font_size else 64
+        margin_v = int(margin_v) if margin_v else 280
 
         ass_header = [
             "[Script Info]",
@@ -561,7 +565,7 @@ class VideoEditor:
             "",
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-            f"Style: KaraokeSub,{clean_font},{font_size},&H00FFFFFF,{ass_highlight},&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,2,2,40,40,280,1",
+            f"Style: KaraokeSub,{clean_font},{font_size},&H00FFFFFF,{ass_highlight},&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,6,2,2,40,40,{margin_v},1",
             f"Style: HookTitle,{clean_font},48,&H00FFFFFF,&H00000000,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,3,12,0,8,60,60,180,1",
             "",
             "[Events]",
@@ -946,3 +950,241 @@ class VideoEditor:
                 pass
 
         return output_path
+
+    def re_render_clip(
+        self,
+        clip_filename: str,
+        camera_mode: str = "custom",      # "custom", "auto", "left", "center", "right", "split_screen"
+        crop_x_percent: float = 0.5,      # 0.0 (far left) to 1.0 (far right)
+        zoom: float = 1.0,               # 1.0 to 1.6
+        filter_preset: str = "none",     # "none", "moody", "teal_orange", "vintage", "crisp", "noir"
+        highlight_color: Optional[str] = None,
+        font_name: Optional[str] = None,
+        font_size: Optional[int] = None,
+        caption_position: str = "bottom", # "bottom", "center", "top"
+    ) -> Dict[str, Any]:
+        """
+        Re-renders an existing short clip with updated camera framing (left, center, right, custom pan),
+        zoom factor (1.0x - 1.6x), color grading filters, and subtitle styling in seconds.
+        """
+        target_clip = self.output_dir / Path(clip_filename).name
+        if not target_clip.exists():
+            raise FileNotFoundError(f"Clip not found: {clip_filename}")
+
+        meta_file = target_clip.with_suffix(".json")
+        meta = {}
+        if meta_file.exists():
+            try:
+                with open(meta_file, "r", encoding="utf-8") as mf:
+                    meta = json.load(mf)
+            except Exception:
+                pass
+
+        start_time = float(meta.get("start", 0.0))
+        end_time = float(meta.get("end", 0.0))
+        duration = end_time - start_time if end_time > start_time else get_media_duration(target_clip)
+        title = meta.get("title") or target_clip.stem
+        segments = meta.get("segments") or []
+        source_path_str = meta.get("source_video")
+        is_precut = bool(meta.get("is_precut", False))
+        burn_subtitles = bool(meta.get("burn_subtitles", True))
+
+        source_video = target_clip
+        use_widescreen_source = False
+
+        if source_path_str and Path(source_path_str).exists():
+            source_video = Path(source_path_str)
+            use_widescreen_source = True
+        else:
+            slice_cands = list(self.temp_dir.glob(f"*{target_clip.stem}*")) + list(self.temp_dir.glob("source_*.mp4"))
+            for cand in slice_cands:
+                if cand.exists() and cand != target_clip:
+                    source_video = cand
+                    use_widescreen_source = True
+                    break
+
+        orig_w, orig_h = get_video_dimensions(source_video)
+        target_w, target_h = 1080, 1920
+        clamped_zoom = max(1.0, min(1.6, float(zoom or 1.0)))
+
+        COLOR_FILTERS = {
+            "moody": "eq=contrast=1.15:brightness=-0.02:saturation=0.90,colorbalance=rs=-0.04:gs=-0.02:bs=0.08",
+            "teal_orange": "colorbalance=rs=0.10:gs=0.02:bs=-0.10:rh=-0.08:gh=0.04:bh=0.12,eq=contrast=1.12:saturation=1.15",
+            "vintage": "colorbalance=rs=0.12:gs=0.06:bs=-0.08,eq=contrast=1.05:saturation=0.92",
+            "crisp": "unsharp=5:5:0.8:5:5:0.0,eq=contrast=1.20:saturation=1.10",
+            "noir": "hue=s=0,eq=contrast=1.25:brightness=-0.03",
+        }
+        color_filter_str = COLOR_FILTERS.get((filter_preset or "none").lower(), "")
+
+        filter_complex = []
+
+        if use_widescreen_source:
+            seek_args = [] if is_precut else ["-ss", f"{start_time:.2f}"]
+            render_dur = duration
+
+            if camera_mode == "auto":
+                crop_sample_start = 0.0 if is_precut else start_time
+                crop_expr = detect_dynamic_speaker_crop_expression(source_video, crop_sample_start, duration, target_w, target_h)
+                chain = f"[0:v]scale=-1:{target_h}:flags=lanczos,crop={target_w}:{target_h}:x='{crop_expr}':y=0"
+            elif camera_mode == "split_screen":
+                half_h = target_h // 2
+                chain = (
+                    f"[0:v]split=2[top_in][bot_in];"
+                    f"[top_in]crop=ih*9/16:ih:0:0,scale={target_w}:{half_h}:flags=lanczos[top_half];"
+                    f"[bot_in]crop=ih*9/16:ih:in_w-(ih*9/16):0,scale={target_w}:{half_h}:flags=lanczos[bot_half];"
+                    f"[top_half][bot_half]vstack=inputs=2"
+                )
+            else:
+                if camera_mode == "left":
+                    crop_x_percent = 0.18
+                elif camera_mode == "center":
+                    crop_x_percent = 0.50
+                elif camera_mode == "right":
+                    crop_x_percent = 0.82
+
+                base_h = orig_h
+                base_w = int(base_h * (target_w / target_h))
+                crop_h = max(360, int(base_h / clamped_zoom))
+                crop_w = max(202, int(crop_h * (target_w / target_h)))
+                max_x = max(0, orig_w - crop_w)
+                crop_x = int(max_x * max(0.0, min(1.0, float(crop_x_percent))))
+                crop_y = max(0, min(orig_h - crop_h, int((orig_h - crop_h) / 2)))
+                chain = f"[0:v]crop={crop_w}:{crop_h}:{crop_x}:{crop_y},scale={target_w}:{target_h}:flags=lanczos"
+        else:
+            seek_args = []
+            render_dur = duration
+            if clamped_zoom > 1.01:
+                crop_w = int(orig_w / clamped_zoom)
+                crop_h = int(orig_h / clamped_zoom)
+                crop_x = int((orig_w - crop_w) * max(0.0, min(1.0, float(crop_x_percent))))
+                crop_y = int((orig_h - crop_h) / 2)
+                chain = f"[0:v]crop={crop_w}:{crop_h}:{crop_x}:{crop_y},scale={target_w}:{target_h}:flags=lanczos"
+            else:
+                chain = f"[0:v]scale={target_w}:{target_h}:flags=lanczos"
+
+        if color_filter_str:
+            chain += f",{color_filter_str}"
+
+        filter_complex.append(f"{chain}[vbase]")
+        current_video_label = "[vbase]"
+
+        sub_file = None
+        if burn_subtitles and segments:
+            active_color = highlight_color or meta.get("highlight_color", "#facc15")
+            active_font = font_name or meta.get("font_name", "Montserrat")
+            active_size = font_size or meta.get("font_size", 64)
+            unique_id = uuid.uuid4().hex[:6]
+            sub_file = self.temp_dir / f"reedit_sub_{unique_id}.ass"
+
+            margin_v = 280
+            if caption_position == "center":
+                margin_v = 850
+            elif caption_position == "top":
+                margin_v = 1500
+
+            self.generate_subtitles_ass(
+                transcript_segments=segments,
+                start_time=0.0 if (is_precut or not use_widescreen_source) else start_time,
+                end_time=duration if (is_precut or not use_widescreen_source) else end_time,
+                output_path=sub_file,
+                hook_title=None,
+                karaoke=True,
+                video_path=source_video,
+                highlight_color=active_color,
+                font_name=active_font,
+                font_size=active_size,
+                margin_v=margin_v,
+            )
+            escaped_sub = str(sub_file.resolve()).replace("\\", "/").replace(":", "\\:")
+            filter_complex.append(f"{current_video_label}ass=filename='{escaped_sub}'[vout]")
+            final_video_label = "[vout]"
+        else:
+            final_video_label = current_video_label
+
+        use_nvenc = config.video_encoder == "nvenc" or (
+            config.video_encoder == "auto" and is_nvenc_available()
+        )
+        if use_nvenc:
+            encoder_args = ["-c:v", "h264_nvenc", "-preset", "p5", "-cq", "18", "-b:v", "0", "-pix_fmt", "yuv420p"]
+        else:
+            encoder_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p"]
+
+        temp_render_path = self.temp_dir / f"reedit_{uuid.uuid4().hex[:6]}_{target_clip.name}"
+
+        cmd = [
+            get_ffmpeg_bin(),
+            "-y",
+            *seek_args,
+            "-i", str(source_video),
+            "-t", f"{render_dur:.2f}",
+            "-filter_complex", ";".join(filter_complex),
+            "-map", final_video_label,
+            "-map", "0:a?",
+            *encoder_args,
+            "-c:a", "aac",
+            "-b:a", "256k",
+            "-movflags", "+faststart",
+            str(temp_render_path),
+        ]
+
+        res = subprocess.run(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if res.returncode != 0 and use_nvenc:
+            logger.warning("NVENC failed on re-render; falling back to libx264: %s", res.stderr)
+            fallback_cmd = [
+                get_ffmpeg_bin(),
+                "-y",
+                *seek_args,
+                "-i", str(source_video),
+                "-t", f"{render_dur:.2f}",
+                "-filter_complex", ";".join(filter_complex),
+                "-map", final_video_label,
+                "-map", "0:a?",
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "18",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac",
+                "-b:a", "256k",
+                "-movflags", "+faststart",
+                str(temp_render_path),
+            ]
+            res = subprocess.run(fallback_cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        if res.returncode != 0:
+            if temp_render_path.exists():
+                try:
+                    temp_render_path.unlink()
+                except OSError:
+                    pass
+            raise RuntimeError(f"FFmpeg re-render failed: {res.stderr}")
+
+        if temp_render_path.exists():
+            shutil.move(str(temp_render_path), str(target_clip))
+
+        if sub_file and sub_file.exists():
+            try:
+                os.remove(sub_file)
+            except OSError:
+                pass
+
+        meta.update({
+            "camera_mode": camera_mode,
+            "crop_x_percent": crop_x_percent,
+            "zoom": zoom,
+            "filter_preset": filter_preset,
+            "highlight_color": highlight_color or meta.get("highlight_color"),
+            "caption_position": caption_position,
+            "last_edited": time.time(),
+        })
+        try:
+            with open(meta_file, "w", encoding="utf-8") as mf:
+                json.dump(meta, mf, indent=2)
+        except Exception:
+            pass
+
+        return {
+            "name": target_clip.name,
+            "title": title,
+            "download_url": f"/outputs/{target_clip.name}?t={int(time.time())}",
+            "meta": meta,
+        }

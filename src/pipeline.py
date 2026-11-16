@@ -180,6 +180,17 @@ class ShortsPipeline:
                         font_size=font_size,
                     )
 
+                    clip_source_path = None
+                    if fast_ingestion and temp_slice and temp_slice.exists():
+                        saved_slice = self.downloader.temp_dir / f"source_{out_file.stem}.mp4"
+                        try:
+                            shutil.copy2(str(temp_slice), str(saved_slice))
+                            clip_source_path = str(saved_slice.resolve())
+                        except Exception:
+                            clip_source_path = str(temp_slice.resolve())
+                    elif not fast_ingestion and input_video and input_video.exists():
+                        clip_source_path = str(input_video.resolve())
+
                     meta_data = {
                         "title": h.title,
                         "hook": h.hook,
@@ -187,6 +198,16 @@ class ShortsPipeline:
                         "start": h.start,
                         "end": h.end,
                         "reason": h.reason,
+                        "source_video": clip_source_path,
+                        "is_precut": is_precut,
+                        "ratio": ratio,
+                        "style": style,
+                        "burn_subtitles": burn_subtitles,
+                        "subtitle_style": subtitle_style,
+                        "highlight_color": highlight_color,
+                        "font_name": font_name,
+                        "font_size": font_size,
+                        "segments": [s for s in transcript.get("segments", []) if s.get("end", 0) >= h.start and s.get("start", 0) <= h.end],
                     }
                     meta_path = out_file.with_suffix(".json")
                     try:
