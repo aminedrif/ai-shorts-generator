@@ -38,3 +38,4 @@ dist/
 dist-electron/
 node_modules/
 *.egg-info/
+scratch/

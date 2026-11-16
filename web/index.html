@@ -3853,6 +3853,21 @@
                       Edit Clip
                     </button>
 
+                    <!-- SOCIAL KIT BUTTON -->
+                    <button 
+                      type="button" 
+                      class="edit-clip-btn" 
+                      style="border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.08); color: var(--emerald);"
+                      title="Viral Titles & Hashtags"
+                      onclick="openSocialKitForClip('${clip.name}')"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+                        <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+                      </svg>
+                      Social Kit
+                    </button>
+
                     <!-- PLAY IN IPHONE BUTTON -->
                     <button 
                       type="button" 
@@ -4227,6 +4242,125 @@
         }
       }
     }
+
+    let globalCachedSocialKit = null;
+
+    async function openSocialKitForClip(filename) {
+      const modal = document.getElementById('indexSocialModalOverlay');
+      modal.style.display = 'flex';
+      const titlesContainer = document.getElementById('idxSocialTitlesList');
+      titlesContainer.innerHTML = '<span style="font-size:12px; color:var(--text-muted);">Generating viral titles & hashtags...</span>';
+
+      try {
+        const resp = await fetch(`/api/clips/${encodeURIComponent(filename)}/social-kit`);
+        if (!resp.ok) throw new Error('Failed to load social kit');
+        const data = await resp.json();
+        globalCachedSocialKit = data;
+
+        titlesContainer.innerHTML = '';
+        (data.titles || []).forEach(t => {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:10px 14px; background:var(--bg-subtle); border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--text); cursor:pointer; display:flex; justify-content:space-between; align-items:center;';
+          div.innerHTML = `<span style="font-weight:600;">${t}</span><span style="font-size:11px; color:var(--emerald);">Click to copy</span>`;
+          div.onclick = () => copyIdxText(t, 'Title copied!');
+          titlesContainer.appendChild(div);
+        });
+
+        document.getElementById('idxSocialDescArea').value = data.description || '';
+
+        const tagsContainer = document.getElementById('idxSocialTagsList');
+        tagsContainer.innerHTML = '';
+        (data.hashtags || []).forEach(tag => {
+          const span = document.createElement('span');
+          span.style.cssText = 'padding:4px 10px; background:rgba(255,255,255,0.06); border:1px solid var(--border); border-radius:9999px; font-size:11px; color:var(--text-muted); cursor:pointer; font-weight:600;';
+          span.innerText = tag;
+          span.onclick = () => copyIdxText(tag, `Copied ${tag}`);
+          tagsContainer.appendChild(span);
+        });
+      } catch (err) {
+        titlesContainer.innerHTML = `<span style="font-size:12px; color:var(--red);">Error: ${err.message}</span>`;
+      }
+    }
+
+    function closeIndexSocialModal() {
+      document.getElementById('indexSocialModalOverlay').style.display = 'none';
+    }
+
+    function copyIdxDescription() {
+      const txt = document.getElementById('idxSocialDescArea').value;
+      copyIdxText(txt, 'Caption copied to clipboard!');
+    }
+
+    function copyIdxHashtags() {
+      if (globalCachedSocialKit && globalCachedSocialKit.hashtag_string) {
+        copyIdxText(globalCachedSocialKit.hashtag_string, 'All hashtags copied!');
+      }
+    }
+
+    function copyIdxText(txt, msg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(() => {
+          showToast(msg || 'Copied!');
+        }).catch(() => {
+          prompt('Copy text:', txt);
+        });
+      } else {
+        prompt('Copy text:', txt);
+      }
+    }
+  </script>
+
+  <!-- INDEX SOCIAL PUBLISHING KIT MODAL -->
+  <div class="social-modal-overlay" id="indexSocialModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:1000; align-items:center; justify-content:center;">
+    <div class="social-modal-card" style="width:600px; max-width:92vw; max-height:88vh; background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 80px rgba(0,0,0,0.95);">
+      <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--bg-subtle);">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">🚀</span>
+          <h3 style="font-size:14px; font-weight:700; color:var(--text);">Viral Social Publishing Kit</h3>
+        </div>
+        <button type="button" onclick="closeIndexSocialModal()" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px 8px;">✕</button>
+      </div>
+      
+      <div style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:18px;">
+        <!-- TITLES -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.5px;">High CTR Viral Titles</span>
+            <span style="font-size:11px; color:var(--text-subtle);">Click title to copy</span>
+          </div>
+          <div id="idxSocialTitlesList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.5px;">Optimized Video Description</span>
+            <button type="button" class="action-btn" onclick="copyIdxDescription()" style="font-size:11px; padding:3px 10px;">📋 Copy Caption</button>
+          </div>
+          <textarea id="idxSocialDescArea" readonly style="width:100%; height:95px; background:var(--bg-subtle); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:inherit; font-size:12px; padding:10px; resize:none; outline:none; line-height:1.5;"></textarea>
+        </div>
+
+        <!-- HASHTAGS -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.5px;">Viral Hashtags</span>
+            <button type="button" class="action-btn" onclick="copyIdxHashtags()" style="font-size:11px; padding:3px 10px; color:var(--emerald);">🔥 Copy All Tags</button>
+          </div>
+          <div id="idxSocialTagsList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+        </div>
+
+        <!-- BEST TIMES -->
+        <div style="background:var(--bg-subtle); border:1px solid var(--border); border-radius:8px; padding:14px;">
+          <span style="font-size:11px; font-weight:700; color:var(--text); text-transform:uppercase; display:block; margin-bottom:8px; letter-spacing:0.5px;">⏰ Recommended Posting Times</span>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-size:11px; color:var(--text-muted);">
+            <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid var(--border);"><strong style="color:#ffffff; display:block; margin-bottom:2px;">TikTok</strong> 12:00 - 3:00 PM<br>7:00 - 10:00 PM</div>
+            <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid var(--border);"><strong style="color:#ffffff; display:block; margin-bottom:2px;">YouTube Shorts</strong> 2:00 PM - 5:00 PM</div>
+            <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid var(--border);"><strong style="color:#ffffff; display:block; margin-bottom:2px;">Instagram Reels</strong> 9:00 - 11:00 AM<br>6:00 - 9:00 PM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   </script>
 </body>
 </html>

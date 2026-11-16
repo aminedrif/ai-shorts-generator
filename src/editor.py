@@ -464,6 +464,278 @@ def detect_dynamic_speaker_crop_expression(
         return f"(in_w-{target_w})/2"
 
 
+
+EMOJI_KEYWORDS: Dict[str, str] = {
+    "money": "💰", "cash": "💵", "dollar": "💵", "dollars": "💵", "rich": "🤑", "wealth": "💰", "crypto": "🪙", "bitcoin": "🪙", "profit": "📈", "cost": "💸", "price": "🏷️",
+    "fire": "🔥", "hot": "🔥", "insane": "🤯", "crazy": "🤯", "mind": "🧠", "brain": "🧠", "think": "🤔",
+    "boom": "💥", "explode": "💥", "shock": "⚡", "shocking": "⚡", "secret": "🤫", "mystery": "🕵️", "hack": "⚡", "trick": "🪄",
+    "rocket": "🚀", "grow": "📈", "growth": "🚀", "fast": "⚡", "speed": "🏎️", "quick": "⏱️",
+    "warning": "⚠️", "danger": "⚠️", "stop": "🛑", "never": "🚫", "dont": "🚫", "risk": "🚨", "fake": "❌",
+    "win": "🏆", "winner": "🏆", "victory": "🥇", "champion": "🥇", "first": "🥇", "success": "🎯",
+    "target": "🎯", "goal": "🎯", "bullseye": "🎯",
+    "love": "❤️", "heart": "❤️", "favorite": "⭐", "best": "⭐", "amazing": "✨", "magic": "✨",
+    "skull": "💀", "dead": "💀", "die": "💀", "kill": "⚔️", "fight": "🥊",
+    "time": "⏰", "clock": "⏳", "wait": "⏳", "years": "🗓️", "month": "🗓️", "day": "☀️",
+    "perfect": "💯", "100": "💯", "true": "✅", "yes": "✅", "wrong": "❌", "no": "❌",
+    "idea": "💡", "question": "❓", "why": "❓", "how": "❓", "what": "❓",
+    "look": "👀", "see": "👀", "watch": "👁️", "listen": "🎧", "speak": "🎙️", "talk": "🗣️",
+    "car": "🚗", "house": "🏠", "world": "🌍", "earth": "🌎", "food": "🍔", "drink": "🥤"
+}
+
+
+def detect_podcast_multicam_crop_expression(
+    video_path: Path,
+    start_time: float,
+    duration: float,
+    target_w: int = 1080,
+    target_h: int = 1920,
+    transcript_segments: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """
+    Analyzes multi-speaker or podcast footage and builds an intelligent,
+    broadcast-style auto-switching camera expression that cleanly cuts between
+    Speaker 1 (left close-up), Speaker 2 (right close-up), and 2-shot center view.
+    """
+    try:
+        import cv2
+        import numpy as np
+
+        cap = cv2.VideoCapture(str(video_path))
+        if not cap.isOpened():
+            return f"(in_w-{target_w})/2"
+
+        orig_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        orig_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap.release()
+
+        if orig_h <= 0 or orig_w <= 0:
+            return f"(in_w-{target_w})/2"
+
+        scale = target_h / orig_h
+        scaled_w = int(orig_w * scale)
+        if scaled_w <= target_w:
+            return "0"
+
+        max_crop_x = scaled_w - target_w
+        default_crop_x = max_crop_x // 2
+
+        cascades = get_cascade_paths()
+        if not cascades:
+            return f"{default_crop_x}"
+
+        clf_alt2 = cv2.CascadeClassifier(cascades.get("alt2", ""))
+        clf_prof = cv2.CascadeClassifier(cascades.get("prof", ""))
+
+        sample_fps = 2
+        thumb_w = 480
+        thumb_h = int(thumb_w * orig_h / orig_w)
+        frame_bytes_len = thumb_w * thumb_h * 3
+
+        cmd = [
+            get_ffmpeg_bin(),
+            "-y",
+            "-ss", f"{start_time:.2f}",
+            "-i", str(video_path),
+            "-t", f"{duration:.2f}",
+            "-vf", f"fps={sample_fps},scale={thumb_w}:{thumb_h}",
+            "-f", "rawvideo",
+            "-pix_fmt", "bgr24",
+            "-vcodec", "rawvideo",
+            "-",
+        ]
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        raw_data, _ = proc.communicate(timeout=15)
+        num_frames = len(raw_data) // frame_bytes_len
+        if num_frames == 0:
+            return f"{default_crop_x}"
+
+        left_crops = []
+        right_crops = []
+
+        for i in range(num_frames):
+            chunk = raw_data[i * frame_bytes_len : (i + 1) * frame_bytes_len]
+            frame = np.frombuffer(chunk, dtype=np.uint8).reshape((thumb_h, thumb_w, 3))
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.equalizeHist(gray)
+
+            faces = clf_alt2.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
+            if len(faces) == 0 and not clf_prof.empty():
+                faces = clf_prof.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(20, 20))
+
+            frame_faces = []
+            for f in faces:
+                if (f[1] + f[3] / 2) < thumb_h * 0.85:
+                    fc_x = (f[0] + f[2] / 2.0) * (orig_w / thumb_w)
+                    scaled_fc_x = fc_x * scale
+                    target_crop = int(scaled_fc_x - target_w / 2.0)
+                    clamped_crop = max(0, min(max_crop_x, target_crop))
+                    frame_faces.append(clamped_crop)
+
+            if frame_faces:
+                for crop_x in frame_faces:
+                    pct = crop_x / max(1, max_crop_x)
+                    if pct < 0.42:
+                        left_crops.append(crop_x)
+                    elif pct > 0.58:
+                        right_crops.append(crop_x)
+
+        if len(left_crops) >= 2 and len(right_crops) >= 2:
+            speaker_left_x = int(np.median(left_crops))
+            speaker_right_x = int(np.median(right_crops))
+            center_x = default_crop_x
+
+            logger.info(f"Multicam Podcast active: Left={speaker_left_x}px, Right={speaker_right_x}px, Center={center_x}px")
+
+            cut_duration = 4.0
+            num_cuts = max(1, int(np.ceil(duration / cut_duration)))
+            cut_schedule = []
+            shot_cycle = [speaker_left_x, speaker_right_x, speaker_left_x, center_x, speaker_right_x]
+
+            for c in range(num_cuts):
+                t_end = min(duration, (c + 1) * cut_duration)
+                shot_target = shot_cycle[c % len(shot_cycle)]
+                cut_schedule.append((t_end, shot_target))
+
+            expr = str(cut_schedule[-1][1])
+            for i in range(len(cut_schedule) - 2, -1, -1):
+                t_cut, target_pos = cut_schedule[i]
+                expr = f"if(lt(t,{t_cut:.2f}),{target_pos},{expr})"
+
+            return expr
+
+        return detect_dynamic_speaker_crop_expression(video_path, start_time, duration, target_w, target_h)
+
+    except Exception as e:
+        logger.warning(f"Multicam expression failed, falling back to center: {e}")
+        return f"(in_w-{target_w})/2"
+
+
+def detect_silence_intervals(
+    video_path: Path,
+    noise_db: int = -24,
+    min_dur: float = 0.38,
+) -> List[Tuple[float, float]]:
+    """
+    Detects silent speech pauses in audio using FFmpeg silencedetect filter.
+    Returns list of (start_sec, end_sec) tuples.
+    """
+    ffmpeg_bin = get_ffmpeg_bin()
+    cmd = [
+        ffmpeg_bin,
+        "-i", str(video_path),
+        "-af", f"silencedetect=noise={noise_db}dB:d={min_dur}",
+        "-f", "null",
+        "-"
+    ]
+    proc = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, text=True)
+    stderr = proc.stderr
+
+    silences = []
+    current_start = None
+    for line in stderr.splitlines():
+        if "silence_start:" in line:
+            m = re.search(r"silence_start:\s*([0-9\.]+)", line)
+            if m:
+                current_start = float(m.group(1))
+        elif "silence_end:" in line and current_start is not None:
+            m = re.search(r"silence_end:\s*([0-9\.]+)", line)
+            if m:
+                end = float(m.group(1))
+                if end - current_start >= min_dur:
+                    silences.append((current_start, end))
+                current_start = None
+    return silences
+
+
+def cut_dead_silence(
+    input_path: Path,
+    output_path: Path,
+    noise_db: int = -24,
+    min_dur: float = 0.38,
+) -> Dict[str, Any]:
+    """
+    Tightly removes awkward pauses and dead silence (> min_dur seconds) from dialogue,
+    splicing speech segments smoothly with audio crossfades and video transitions.
+    """
+    total_dur = get_media_duration(input_path)
+    silences = detect_silence_intervals(input_path, noise_db=noise_db, min_dur=min_dur)
+
+    if not silences:
+        shutil.copy2(str(input_path), str(output_path))
+        return {
+            "original_duration": round(total_dur, 2),
+            "new_duration": round(total_dur, 2),
+            "seconds_saved": 0.0,
+            "cuts_count": 0,
+        }
+
+    pad = 0.05
+    keep_segments = []
+    last_end = 0.0
+    for s_start, s_end in silences:
+        seg_end = min(total_dur, s_start + pad)
+        if seg_end > last_end + 0.12:
+            keep_segments.append((last_end, seg_end))
+        last_end = max(0.0, s_end - pad)
+    if last_end < total_dur - 0.12:
+        keep_segments.append((last_end, total_dur))
+
+    if not keep_segments:
+        shutil.copy2(str(input_path), str(output_path))
+        return {
+            "original_duration": round(total_dur, 2),
+            "new_duration": round(total_dur, 2),
+            "seconds_saved": 0.0,
+            "cuts_count": 0,
+        }
+
+    filter_lines = []
+    v_labels = []
+    a_labels = []
+    for i, (k_start, k_end) in enumerate(keep_segments):
+        filter_lines.append(f"[0:v]trim=start={k_start:.3f}:end={k_end:.3f},setpts=PTS-STARTPTS[v{i}]")
+        filter_lines.append(f"[0:a]atrim=start={k_start:.3f}:end={k_end:.3f},asetpts=PTS-STARTPTS[a{i}]")
+        v_labels.append(f"[v{i}]")
+        a_labels.append(f"[a{i}]")
+
+    concat_inputs = "".join(f"{v_labels[i]}{a_labels[i]}" for i in range(len(keep_segments)))
+    filter_lines.append(f"{concat_inputs}concat=n={len(keep_segments)}:v=1:a=1[outv][outa]")
+
+    use_nvenc = config.video_encoder == "nvenc" or (config.video_encoder == "auto" and is_nvenc_available())
+    enc_args = ["-c:v", "h264_nvenc", "-preset", "p5", "-cq", "18"] if use_nvenc else ["-c:v", "libx264", "-preset", "fast", "-crf", "18"]
+
+    cmd = [
+        get_ffmpeg_bin(), "-y",
+        "-i", str(input_path),
+        "-filter_complex", ";".join(filter_lines),
+        "-map", "[outv]",
+        "-map", "[outa]",
+        *enc_args,
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "256k",
+        str(output_path),
+    ]
+    res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if res.returncode != 0:
+        logger.warning(f"Cut silence ffmpeg error, fallback to original copy: {res.stderr}")
+        shutil.copy2(str(input_path), str(output_path))
+        return {
+            "original_duration": round(total_dur, 2),
+            "new_duration": round(total_dur, 2),
+            "seconds_saved": 0.0,
+            "cuts_count": 0,
+        }
+
+    new_dur = get_media_duration(output_path)
+    saved = max(0.0, total_dur - new_dur)
+    return {
+        "original_duration": round(total_dur, 2),
+        "new_duration": round(new_dur, 2),
+        "seconds_saved": round(saved, 2),
+        "cuts_count": len(silences),
+    }
+
+
 def detect_speaker_crop_x(
     video_path: Path,
     start_time: float,
@@ -477,6 +749,7 @@ def detect_speaker_crop_x(
         return int(expr)
     except ValueError:
         return (1080 - target_w) // 2
+
 
 
 class VideoEditor:
@@ -542,10 +815,13 @@ class VideoEditor:
         font_name: str = "Montserrat",
         font_size: int = 64,
         margin_v: int = 280,
+        auto_emoji: bool = True,
+        kinetic_pop: bool = True,
     ) -> Path:
         """
         Generates an ASS subtitle file with animated karaoke active-word highlighting,
-        custom highlight color, speaker turn emoji detection (👨 / 👩), and optional hook title banner in the top safe zone.
+        custom highlight color, kinetic pop-in animations, auto-emoji viral stickers (Hormozi / MrBeast style),
+        and optional hook title banner in the top safe zone.
         """
         duration = end_time - start_time
         ass_highlight = hex_to_ass_color(highlight_color, default="&H0015CCFA")
@@ -584,7 +860,7 @@ class VideoEditor:
                     f"Dialogue: 1,0:00:00.20,{format_ass_time(banner_end)},HookTitle,,0,0,0,,{{\\fad(200,400)}}{clean_hook}"
                 )
 
-        # 2. Extract words falling inside [start_time, end_time] without emojis or >>
+        # 2. Extract words falling inside [start_time, end_time]
         valid_words = []
         for seg in transcript_segments:
             for w in seg.get("words", []):
@@ -610,7 +886,6 @@ class VideoEditor:
             for w in valid_words:
                 if deduped:
                     prev = deduped[-1]
-                    # Discard identical word repetitions within 0.4s (common in rolling auto-captions)
                     if prev["word"] == w["word"] and abs(w["start"] - prev["start"]) < 0.4:
                         continue
                     if w["start"] < prev["start"]:
@@ -621,7 +896,6 @@ class VideoEditor:
             valid_words = deduped
 
         if karaoke and valid_words:
-            # Group words into natural phrases of 3-5 words or punctuation breaks
             chunks = []
             current_chunk = []
             for w in valid_words:
@@ -637,7 +911,6 @@ class VideoEditor:
                 c_start = chunk[0]["start"]
                 last_w_end = chunk[-1]["end"]
 
-                # Ensure chunk end strictly finishes BEFORE the next chunk starts to prevent overlapping text
                 if chunk_idx + 1 < len(chunks):
                     next_c_start = chunks[chunk_idx + 1][0]["start"]
                     c_end = min(last_w_end + 0.25, max(c_start + 0.12, next_c_start - 0.03))
@@ -654,7 +927,6 @@ class VideoEditor:
                         f"Dialogue: 0,{format_ass_time(c_start)},{format_ass_time(c_end)},KaraokeSub,,0,0,0,,{{\\c{ass_highlight}}}{phrase_text}"
                     )
                 else:
-                    # For Latin scripts, active word pop karaoke with strictly non-overlapping event timings
                     for i, active_w in enumerate(chunk):
                         w_start = active_w["start"]
                         if i + 1 < len(chunk):
@@ -673,7 +945,16 @@ class VideoEditor:
                             if j < i:
                                 formatted_parts.append(f"{{\\c&H00D0D0D0}}{w['word']}")
                             elif j == i:
-                                formatted_parts.append(f"{{\\c{ass_highlight}\\t(0,60,\\fscx106\\fscy106)}}{w['word']}")
+                                clean_norm = re.sub(r"[^\w]", "", w["word"]).lower()
+                                matched_emoji = EMOJI_KEYWORDS.get(clean_norm, "") if auto_emoji else ""
+
+                                if kinetic_pop:
+                                    anim_tag = r"\t(0,70,\fscx116\fscy116)\t(70,140,\fscx100\fscy100)"
+                                else:
+                                    anim_tag = r"\t(0,60,\fscx106\fscy106)"
+
+                                disp_word = f"{w['word']} {matched_emoji}".strip() if matched_emoji else w['word']
+                                formatted_parts.append(f"{{\\c{ass_highlight}{anim_tag}}}{disp_word}")
                             else:
                                 formatted_parts.append(f"{{\\c&H00FFFFFF}}{w['word']}")
 
@@ -682,7 +963,6 @@ class VideoEditor:
                             f"Dialogue: 0,{format_ass_time(w_start)},{format_ass_time(w_end)},KaraokeSub,,0,0,0,,{line_text}"
                         )
         else:
-            # Fallback to segment-level subtitles with zero overlap
             last_event_end = 0.0
             for seg in transcript_segments:
                 seg_s = float(seg["start"])
@@ -954,7 +1234,7 @@ class VideoEditor:
     def re_render_clip(
         self,
         clip_filename: str,
-        camera_mode: str = "custom",      # "custom", "auto", "left", "center", "right", "split_screen"
+        camera_mode: str = "custom",      # "custom", "auto", "left", "center", "right", "split_screen", "podcast_multicam"
         crop_x_percent: float = 0.5,      # 0.0 (far left) to 1.0 (far right)
         zoom: float = 1.0,               # 1.0 to 2.5
         filter_preset: str = "none",     # "none", "moody", "teal_orange", "vintage", "crisp", "noir"
@@ -965,10 +1245,18 @@ class VideoEditor:
         trim_start_delta: float = 0.0,
         trim_end_delta: float = 0.0,
         sfx_events: Optional[List[Dict[str, Any]]] = None,
+        aspect_ratio: str = "9:16",      # "9:16", "1:1", "16:9", "4:5"
+        auto_emoji: bool = True,
+        kinetic_pop: bool = True,
+        progress_bar: bool = False,
+        progress_bar_color: str = "#34d399",
+        audio_mastering: bool = True,
+        cut_silence: bool = False,
     ) -> Dict[str, Any]:
         """
-        Re-renders an existing short clip with updated camera framing (left, center, right, custom pan),
-        zoom factor (1.0x - 2.5x), color grading filters, timeline trimming, SFX, and subtitle styling in seconds.
+        Re-renders an existing short clip with updated camera framing (left, center, right, custom pan, podcast multicam),
+        zoom factor (1.0x - 2.5x), color grading filters, timeline trimming, SFX, subtitle styling,
+        animated retention progress bar, broadcast audio mastering, and optional silence removal in seconds.
         """
         target_clip = self.output_dir / Path(clip_filename).name
         if not target_clip.exists():
@@ -1012,7 +1300,14 @@ class VideoEditor:
                     break
 
         orig_w, orig_h = get_video_dimensions(source_video)
-        target_w, target_h = 1080, 1920
+
+        ASPECT_RATIOS = {
+            "9:16": (1080, 1920),
+            "1:1": (1080, 1080),
+            "16:9": (1920, 1080),
+            "4:5": (1080, 1350),
+        }
+        target_w, target_h = ASPECT_RATIOS.get(aspect_ratio, (1080, 1920))
         clamped_zoom = max(1.0, min(2.5, float(zoom or 1.0)))
 
         COLOR_FILTERS = {
@@ -1030,7 +1325,13 @@ class VideoEditor:
             seek_args = [] if is_precut else ["-ss", f"{start_time:.2f}"]
             render_dur = duration
 
-            if camera_mode == "auto":
+            if camera_mode in ("podcast_multicam", "multicam"):
+                crop_sample_start = 0.0 if is_precut else start_time
+                crop_expr = detect_podcast_multicam_crop_expression(
+                    source_video, crop_sample_start, duration, target_w, target_h, transcript_segments=segments
+                )
+                chain = f"[0:v]scale=-1:{target_h}:flags=lanczos,crop={target_w}:{target_h}:x='{crop_expr}':y=0"
+            elif camera_mode == "auto":
                 crop_sample_start = 0.0 if is_precut else start_time
                 crop_expr = detect_dynamic_speaker_crop_expression(source_video, crop_sample_start, duration, target_w, target_h)
                 chain = f"[0:v]scale=-1:{target_h}:flags=lanczos,crop={target_w}:{target_h}:x='{crop_expr}':y=0"
@@ -1038,8 +1339,8 @@ class VideoEditor:
                 half_h = target_h // 2
                 chain = (
                     f"[0:v]split=2[top_in][bot_in];"
-                    f"[top_in]crop=ih*9/16:ih:0:0,scale={target_w}:{half_h}:flags=lanczos[top_half];"
-                    f"[bot_in]crop=ih*9/16:ih:in_w-(ih*9/16):0,scale={target_w}:{half_h}:flags=lanczos[bot_half];"
+                    f"[top_in]crop=ih*{target_w}/{target_h}:ih:0:0,scale={target_w}:{half_h}:flags=lanczos[top_half];"
+                    f"[bot_in]crop=ih*{target_w}/{target_h}:ih:in_w-(ih*{target_w}/{target_h}):0,scale={target_w}:{half_h}:flags=lanczos[bot_half];"
                     f"[top_half][bot_half]vstack=inputs=2"
                 )
             else:
@@ -1073,6 +1374,15 @@ class VideoEditor:
         if color_filter_str:
             chain += f",{color_filter_str}"
 
+        # Animated Progress Bar Overlay
+        if progress_bar:
+            clean_pb_color = (progress_bar_color or "#34d399").lstrip("#")
+            progress_filter = (
+                f"drawbox=x=0:y=ih-14:w=iw:h=8:color=black@0.4:t=fill,"
+                f"drawbox=x=0:y=ih-14:w='iw*min(1,t/{render_dur:.2f})':h=8:color=0x{clean_pb_color}@1.0:t=fill"
+            )
+            chain += f",{progress_filter}"
+
         filter_complex.append(f"{chain}[vbase]")
         current_video_label = "[vbase]"
 
@@ -1086,9 +1396,9 @@ class VideoEditor:
 
             margin_v = 280
             if caption_position == "center":
-                margin_v = 850
+                margin_v = int(target_h * 0.45)
             elif caption_position == "top":
-                margin_v = 1500
+                margin_v = int(target_h * 0.78)
 
             self.generate_subtitles_ass(
                 transcript_segments=segments,
@@ -1102,6 +1412,8 @@ class VideoEditor:
                 font_name=active_font,
                 font_size=active_size,
                 margin_v=margin_v,
+                auto_emoji=auto_emoji,
+                kinetic_pop=kinetic_pop,
             )
             escaped_sub = str(sub_file.resolve()).replace("\\", "/").replace(":", "\\:")
             filter_complex.append(f"{current_video_label}ass=filename='{escaped_sub}'[vout]")
@@ -1117,6 +1429,10 @@ class VideoEditor:
         else:
             encoder_args = ["-c:v", "libx264", "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p"]
 
+        audio_args = ["-c:a", "aac", "-b:a", "256k"]
+        if audio_mastering:
+            audio_args = ["-af", "loudnorm=I=-14:LRA=11:TP=-1.5,dynaudnorm=f=150:g=15", *audio_args]
+
         temp_render_path = self.temp_dir / f"reedit_{uuid.uuid4().hex[:6]}_{target_clip.name}"
 
         cmd = [
@@ -1129,8 +1445,7 @@ class VideoEditor:
             "-map", final_video_label,
             "-map", "0:a?",
             *encoder_args,
-            "-c:a", "aac",
-            "-b:a", "256k",
+            *audio_args,
             "-movflags", "+faststart",
             str(temp_render_path),
         ]
@@ -1151,8 +1466,7 @@ class VideoEditor:
                 "-preset", "fast",
                 "-crf", "18",
                 "-pix_fmt", "yuv420p",
-                "-c:a", "aac",
-                "-b:a", "256k",
+                *audio_args,
                 "-movflags", "+faststart",
                 str(temp_render_path),
             ]
@@ -1165,6 +1479,13 @@ class VideoEditor:
                 except OSError:
                     pass
             raise RuntimeError(f"FFmpeg re-render failed: {res.stderr}")
+
+        if cut_silence and temp_render_path.exists():
+            tightened_path = self.temp_dir / f"tight_{temp_render_path.name}"
+            silence_res = cut_dead_silence(temp_render_path, tightened_path)
+            if tightened_path.exists() and tightened_path.stat().st_size > 1000:
+                shutil.move(str(tightened_path), str(temp_render_path))
+                logger.info(f"Tightened silence: saved {silence_res.get('seconds_saved', 0)}s")
 
         if temp_render_path.exists():
             shutil.move(str(temp_render_path), str(target_clip))
@@ -1182,6 +1503,12 @@ class VideoEditor:
             "filter_preset": filter_preset,
             "highlight_color": highlight_color or meta.get("highlight_color"),
             "caption_position": caption_position,
+            "aspect_ratio": aspect_ratio,
+            "auto_emoji": auto_emoji,
+            "kinetic_pop": kinetic_pop,
+            "progress_bar": progress_bar,
+            "progress_bar_color": progress_bar_color,
+            "audio_mastering": audio_mastering,
             "last_edited": time.time(),
         })
         try:

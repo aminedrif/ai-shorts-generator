@@ -380,6 +380,19 @@ class ReRenderRequest(BaseModel):
     trim_start_delta: float = 0.0
     trim_end_delta: float = 0.0
     sfx_events: Optional[list] = None
+    aspect_ratio: str = "9:16"
+    auto_emoji: bool = True
+    kinetic_pop: bool = True
+    progress_bar: bool = False
+    progress_bar_color: str = "#34d399"
+    audio_mastering: bool = True
+    cut_silence: bool = False
+
+
+class SilenceRequest(BaseModel):
+    clip_filename: str
+    noise_db: int = -24
+    min_dur: float = 0.38
 
 
 @app.get("/api/clips/{filename}/details")
@@ -473,7 +486,7 @@ def get_clip_details(filename: str):
 
 @app.post("/api/clips/re-render")
 def re_render_clip_endpoint(req: ReRenderRequest):
-    """Re-renders an existing clip with custom camera framing, zoom, color filters, and subtitle styles."""
+    """Re-renders an existing clip with custom camera framing, zoom, color filters, subtitle styles, and studio FX."""
     try:
         editor = VideoEditor(output_dir=config.output_dir, temp_dir=config.temp_dir)
         res = editor.re_render_clip(
@@ -489,11 +502,127 @@ def re_render_clip_endpoint(req: ReRenderRequest):
             trim_start_delta=req.trim_start_delta,
             trim_end_delta=req.trim_end_delta,
             sfx_events=req.sfx_events,
+            aspect_ratio=req.aspect_ratio,
+            auto_emoji=req.auto_emoji,
+            kinetic_pop=req.kinetic_pop,
+            progress_bar=req.progress_bar,
+            progress_bar_color=req.progress_bar_color,
+            audio_mastering=req.audio_mastering,
+            cut_silence=req.cut_silence,
         )
         return {"status": "ok", "clip": res}
     except Exception as e:
         logger.error(f"Re-render endpoint error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/clips/detect-silence")
+def detect_silence_endpoint(req: SilenceRequest):
+    """Detects awkward pauses and dead silence in a clip."""
+    clean_name = Path(req.clip_filename).name
+    clip_file = config.output_dir / clean_name
+    if not clip_file.exists():
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    from src.editor import detect_silence_intervals
+    silences = detect_silence_intervals(clip_file, noise_db=req.noise_db, min_dur=req.min_dur)
+    total_silence = sum(end - start for start, end in silences)
+    return {
+        "filename": clean_name,
+        "silence_intervals": [{"start": round(s, 2), "end": round(e, 2), "duration": round(e - s, 2)} for s, e in silences],
+        "total_silence_seconds": round(total_silence, 2),
+        "cuts_count": len(silences),
+    }
+
+
+@app.post("/api/clips/cut-silence")
+def cut_silence_endpoint(req: SilenceRequest):
+    """Tightly cuts dead silence from dialogue in a clip."""
+    clean_name = Path(req.clip_filename).name
+    clip_file = config.output_dir / clean_name
+    if not clip_file.exists():
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    from src.editor import cut_dead_silence
+    temp_out = config.temp_dir / f"tight_{clean_name}"
+    stats = cut_dead_silence(clip_file, temp_out, noise_db=req.noise_db, min_dur=req.min_dur)
+    if temp_out.exists() and temp_out.stat().st_size > 1000:
+        import shutil
+        shutil.move(str(temp_out), str(clip_file))
+
+    return {
+        "status": "ok",
+        "filename": clean_name,
+        "stats": stats,
+    }
+
+
+@app.get("/api/clips/{filename}/social-kit")
+def get_clip_social_kit(filename: str):
+    """
+    Generates a viral social media publishing kit (titles, SEO description, hashtags,
+    and platform scheduling advice) for 1-click posting to TikTok, Reels, and Shorts.
+    """
+    import re
+    from collections import Counter
+
+    clean_name = Path(filename).name
+    clip_file = config.output_dir / clean_name
+    if not clip_file.exists():
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    meta_file = clip_file.with_suffix(".json")
+    meta = {}
+    if meta_file.exists():
+        try:
+            with open(meta_file, "r", encoding="utf-8") as mf:
+                meta = json.load(mf)
+        except Exception:
+            pass
+
+    title = meta.get("title") or clip_file.stem.replace("_", " ")
+    hook = meta.get("hook") or title
+    segments = meta.get("segments") or []
+
+    transcript_text = " ".join(seg.get("text", "") for seg in segments).strip()
+    if not transcript_text:
+        transcript_text = title
+
+    words = re.findall(r"\b[A-Za-z]{4,}\b", transcript_text.lower())
+    common_stop = {"this", "that", "with", "from", "have", "they", "will", "what", "when", "your", "more", "like", "just", "about"}
+    filtered_words = [w for w in words if w not in common_stop]
+    top_niche_words = [word for word, _ in Counter(filtered_words).most_common(5)]
+    niche_tags = [f"#{w}" for w in top_niche_words]
+
+    titles = [
+        f"Wait until the end... 😱 {title}",
+        f"Did you know about this?! 🤯 ({title})",
+        f"The secret behind {title} that nobody talks about 🤫",
+    ]
+
+    description = (
+        f"🔥 {hook}\n\n"
+        f"Here's what happens when you look closer: {title}.\n\n"
+        f"👇 Drop your thoughts in the comments below!\n"
+        f"📌 Save this video for later & follow for daily viral moments!"
+    )
+
+    base_hashtags = ["#shorts", "#fyp", "#viral", "#trending", "#reels", "#tiktok", "#contentcreator", "#foryoupage"]
+    all_hashtags = list(dict.fromkeys(base_hashtags + niche_tags + ["#mustwatch", "#dailyvideo"]))
+
+    return {
+        "filename": clean_name,
+        "primary_title": titles[0],
+        "titles": titles,
+        "description": description,
+        "hashtags": all_hashtags,
+        "hashtag_string": " ".join(all_hashtags),
+        "recommended_times": {
+            "tiktok": "12:00 PM - 3:00 PM & 7:00 PM - 10:00 PM",
+            "youtube_shorts": "2:00 PM - 5:00 PM",
+            "instagram_reels": "9:00 AM - 11:00 AM & 6:00 PM - 9:00 PM",
+        },
+    }
 
 
 @app.get("/api/errors")

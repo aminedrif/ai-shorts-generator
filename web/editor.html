@@ -736,13 +736,23 @@
 
     <div class="topbar-center">
       <div class="ratio-pill-group">
-        <button type="button" class="ratio-pill active" onclick="setCanvasRatio('9:16')">9:16 Shorts</button>
-        <button type="button" class="ratio-pill" onclick="setCanvasRatio('1:1')">1:1 Square</button>
-        <button type="button" class="ratio-pill" onclick="setCanvasRatio('16:9')">16:9 Wide</button>
+        <button type="button" class="ratio-pill active" id="ratio9_16" onclick="setCanvasRatio('9:16')">9:16 Shorts</button>
+        <button type="button" class="ratio-pill" id="ratio1_1" onclick="setCanvasRatio('1:1')">1:1 Square</button>
+        <button type="button" class="ratio-pill" id="ratio16_9" onclick="setCanvasRatio('16:9')">16:9 Wide</button>
+        <button type="button" class="ratio-pill" id="ratio4_5" onclick="setCanvasRatio('4:5')">4:5 Feed</button>
       </div>
     </div>
 
     <div class="topbar-right">
+      <button type="button" class="back-btn" onclick="openSocialKitModal()" style="border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.1); color: var(--emerald);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+          <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+        </svg>
+        Social Kit
+      </button>
       <button type="button" class="export-btn" id="exportBtn" onclick="exportEditedShort()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -774,7 +784,7 @@
         </button>
         <button type="button" class="toolbox-tab-btn" onclick="switchToolTab('filters')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z"/></svg>
-          Filters
+          Studio FX
         </button>
       </div>
 
@@ -787,6 +797,8 @@
             </div>
             <div class="reframe-presets-grid">
               <button type="button" class="preset-chip active" id="presetCenter" onclick="applyReframePreset('center')">Center Focus</button>
+              <button type="button" class="preset-chip" id="presetMulticam" onclick="applyReframePreset('podcast_multicam')">🎙️ Multi-Cam</button>
+              <button type="button" class="preset-chip" id="presetAuto" onclick="applyReframePreset('auto')">🎯 Auto-Track</button>
               <button type="button" class="preset-chip" id="presetLeft" onclick="applyReframePreset('left')">Speaker Left</button>
               <button type="button" class="preset-chip" id="presetRight" onclick="applyReframePreset('right')">Speaker Right</button>
               <button type="button" class="preset-chip" id="presetSplit" onclick="applyReframePreset('split_screen')">Split Screen</button>
@@ -847,18 +859,68 @@
           <div class="panel-section-title">
             <span>Subtitle Position</span>
           </div>
-          <div class="reframe-presets-grid">
+          <div class="reframe-presets-grid" style="margin-bottom: 14px;">
             <button type="button" class="preset-chip active" id="capPosBottom" onclick="setCaptionPos('bottom')">Bottom</button>
             <button type="button" class="preset-chip" id="capPosCenter" onclick="setCaptionPos('center')">Center</button>
             <button type="button" class="preset-chip" id="capPosTop" onclick="setCaptionPos('top')">Top Safe</button>
           </div>
+
+          <div class="panel-section-title">
+            <span>Viral Caption Engine</span>
+          </div>
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); cursor: pointer;">
+              <input type="checkbox" id="chkAutoEmoji" checked style="accent-color: var(--emerald); width: 16px; height: 16px;">
+              <span>🔥 Auto-Emoji (Hormozi / MrBeast)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); cursor: pointer;">
+              <input type="checkbox" id="chkKineticPop" checked style="accent-color: var(--emerald); width: 16px; height: 16px;">
+              <span>⚡ Kinetic Pop-in Word Bounce</span>
+            </label>
+          </div>
         </div>
 
-        <!-- TAB 4: FILTERS -->
+        <!-- TAB 4: STUDIO FX & FILTERS -->
         <div class="tab-panel" id="tabPanel_filters">
           <div class="panel-section-title">
             <span>Cinematic Color Grading</span>
           </div>
+          <div class="reframe-presets-grid" style="margin-bottom: 16px;">
+            <button type="button" class="preset-chip active" id="filterNone" onclick="setFilter('none')">Original</button>
+            <button type="button" class="preset-chip" id="filterMoody" onclick="setFilter('moody')">Moody Zinc</button>
+            <button type="button" class="preset-chip" id="filterTeal" onclick="setFilter('teal_orange')">Teal & Orange</button>
+            <button type="button" class="preset-chip" id="filterVintage" onclick="setFilter('vintage')">Vintage 35mm</button>
+            <button type="button" class="preset-chip" id="filterCrisp" onclick="setFilter('crisp')">Crisp 4K</button>
+            <button type="button" class="preset-chip" id="filterNoir" onclick="setFilter('noir')">Noir B&W</button>
+          </div>
+
+          <div class="panel-section-title">
+            <span>Retention Progress Bar</span>
+          </div>
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); cursor: pointer; margin-bottom: 10px;">
+              <input type="checkbox" id="chkProgressBar" style="accent-color: var(--emerald); width: 16px; height: 16px;" onchange="toggleProgressBarPreview(this.checked)">
+              <span>Glowing Completion Line</span>
+            </label>
+            <div id="progressBarColors" style="display: flex; gap: 8px;">
+              <button type="button" class="pb-color-btn active" style="width: 20px; height: 20px; border-radius: 50%; background: #34d399; border: 2px solid #fff; cursor: pointer;" onclick="setProgressBarColor('#34d399')"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #facc15; border: none; cursor: pointer;" onclick="setProgressBarColor('#facc15')"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #ef4444; border: none; cursor: pointer;" onclick="setProgressBarColor('#ef4444')"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #38bdf8; border: none; cursor: pointer;" onclick="setProgressBarColor('#38bdf8')"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #fafafa; border: none; cursor: pointer;" onclick="setProgressBarColor('#fafafa')"></button>
+            </div>
+          </div>
+
+          <div class="panel-section-title">
+            <span>Audio Mastering</span>
+          </div>
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; padding: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); cursor: pointer;">
+              <input type="checkbox" id="chkAudioMastering" checked style="accent-color: var(--emerald); width: 16px; height: 16px;">
+              <span>Broadcast Standards (-14 LUFS)</span>
+            </label>
+          </div>
+        </div>
           <div class="reframe-presets-grid">
             <button type="button" class="preset-chip active" id="filterNone" onclick="setFilter('none')">Original</button>
             <button type="button" class="preset-chip" id="filterMoody" onclick="setFilter('moody')">Moody Zinc</button>
@@ -887,6 +949,10 @@
           <video id="masterVideo" class="master-video-element" playsinline loop muted></video>
           <div class="crop-bounding-box" id="cropBoundingBox"></div>
           <div class="canvas-watermark-overlay" id="canvasOverlayTag">Full Resolution Master</div>
+          <!-- Progress Bar Preview Overlay -->
+          <div id="phoneProgressBarPreview" style="display:none; position:absolute; bottom:0; left:0; right:0; height:5px; background:rgba(0,0,0,0.5); z-index:25;">
+            <div id="phoneProgressLine" style="height:100%; width:60%; background:#34d399; box-shadow:0 0 10px #34d399; transition:background 0.2s;"></div>
+          </div>
         </div>
       </div>
 
@@ -957,6 +1023,9 @@
         </button>
         <button type="button" class="tl-tool-btn" onclick="splitClipAtPlayhead()">
           <span>✂ Split (S)</span>
+        </button>
+        <button type="button" class="tl-tool-btn" onclick="autoCutDeadSilence()" style="color:var(--emerald);" title="Tighten awkward pauses > 0.4s">
+          <span id="tlSilenceIcon">⚡ Auto-Cut Silence</span>
         </button>
       </div>
       <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--text-muted);" id="timelineClock">
@@ -1029,6 +1098,10 @@
       filter: 'none',
       captionPos: 'bottom',
       highlightColor: '#facc15',
+      aspectRatio: '9:16',
+      cameraMode: 'custom',
+      progressBar: false,
+      progressBarColor: '#34d399',
     };
 
     // Timeline State
@@ -1036,6 +1109,7 @@
     let trimStart = 0.0;
     let trimEnd = 30.0;
     let sfxEvents = [];
+    let cachedSocialKit = null;
 
     // Drag tracking on canvas
     let isDraggingCanvas = false;
@@ -1302,6 +1376,7 @@
       const btn = document.getElementById(`preset${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
       if (btn) btn.classList.add('active');
 
+      transformState.cameraMode = mode;
       if (mode === 'center') {
         transformState.panX = 0;
         transformState.scale = 1.0;
@@ -1314,8 +1389,87 @@
       } else if (mode === 'split_screen') {
         transformState.panX = 0;
         transformState.scale = 1.0;
+      } else if (mode === 'podcast_multicam') {
+        transformState.panX = 0;
+        transformState.scale = 1.05;
+        showToast('🎙️ Multicam Auto-Switching activated');
+      } else if (mode === 'auto') {
+        transformState.panX = 0;
+        transformState.scale = 1.05;
+        showToast('🎯 Auto Face Tracking activated');
       }
       applyVideoTransform();
+    }
+
+    function setCanvasRatio(ratio) {
+      transformState.aspectRatio = ratio;
+      document.querySelectorAll('.ratio-pill').forEach(b => b.classList.remove('active'));
+      const btnId = 'ratio' + ratio.replace(':', '_');
+      document.getElementById(btnId)?.classList.add('active');
+
+      const frame = document.getElementById('phoneCanvasFrame');
+      const badge = document.getElementById('canvasResBadge');
+      if (ratio === '1:1') {
+        frame.style.width = '360px';
+        frame.style.height = '360px';
+        badge.innerText = '1080x1080 (1:1 Square)';
+      } else if (ratio === '16:9') {
+        frame.style.width = '560px';
+        frame.style.height = '315px';
+        badge.innerText = '1920x1080 (16:9 Landscape)';
+      } else if (ratio === '4:5') {
+        frame.style.width = '320px';
+        frame.style.height = '400px';
+        badge.innerText = '1080x1350 (4:5 Feed)';
+      } else {
+        frame.style.width = '320px';
+        frame.style.height = '568px';
+        badge.innerText = '1080x1920 (9:16 Shorts)';
+      }
+      showToast(`Export aspect ratio set to ${ratio}`);
+    }
+
+    function toggleProgressBarPreview(enabled) {
+      transformState.progressBar = enabled;
+      const preview = document.getElementById('phoneProgressBarPreview');
+      if (preview) preview.style.display = enabled ? 'block' : 'none';
+      showToast(enabled ? 'Glowing progress bar enabled' : 'Progress bar disabled');
+    }
+
+    function setProgressBarColor(color) {
+      transformState.progressBarColor = color;
+      const line = document.getElementById('phoneProgressLine');
+      if (line) {
+        line.style.background = color;
+        line.style.boxShadow = `0 0 10px ${color}`;
+      }
+      document.querySelectorAll('#progressBarColors .pb-color-btn').forEach(b => b.style.border = 'none');
+      if (event && event.currentTarget) event.currentTarget.style.border = '2px solid #fff';
+      showToast(`Progress bar color set to ${color}`);
+    }
+
+    async function autoCutDeadSilence() {
+      const btn = document.getElementById('tlSilenceIcon');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '⏳ Scanning pauses...';
+
+      try {
+        const resp = await fetch('/api/clips/cut-silence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clip_filename: clipFilename, noise_db: -24, min_dur: 0.38 }),
+        });
+        if (!resp.ok) throw new Error('Silence removal failed');
+        const data = await resp.json();
+        const saved = data.stats?.seconds_saved || 0;
+        showToast(`⚡ Tightened dialogue! Cut ${saved}s of dead silence.`);
+        video.src = `${clipDetails.master_url || clipDetails.clip_url}?t=${Date.now()}`;
+        video.load();
+      } catch (err) {
+        alert(`Silence detection error: ${err.message}`);
+      } finally {
+        btn.innerHTML = originalText;
+      }
     }
 
     function setFilter(preset) {
@@ -1365,9 +1519,7 @@
         frame.style.borderRadius = '8px';
         video.style.objectFit = 'contain';
       } else {
-        frame.style.width = '320px';
-        frame.style.height = '568px';
-        frame.style.borderRadius = '18px';
+        setCanvasRatio(transformState.aspectRatio || '9:16');
         video.style.objectFit = 'cover';
       }
     }
@@ -1376,17 +1528,16 @@
     async function exportEditedShort() {
       const exportBtn = document.getElementById('exportBtn');
       exportBtn.disabled = true;
-      exportBtn.innerText = 'Rendering 1080x1920...';
+      exportBtn.innerText = 'Rendering Short...';
 
-      showToast('Rendering from full-resolution master...');
+      showToast('Rendering with Studio Engine...');
 
       try {
-        // Map panX pixel offset (-400 to +400) to 0.0 - 1.0 crop percentage
         const panPct = Math.max(0.0, Math.min(1.0, 0.5 - (transformState.panX / 800.0)));
 
         const payload = {
           clip_filename: clipFilename,
-          camera_mode: 'custom',
+          camera_mode: transformState.cameraMode || 'custom',
           crop_x_percent: panPct,
           zoom: transformState.scale,
           filter_preset: transformState.filter,
@@ -1395,6 +1546,13 @@
           trim_start_delta: trimStart,
           trim_end_delta: trimEnd - duration,
           sfx_events: sfxEvents,
+          aspect_ratio: transformState.aspectRatio || '9:16',
+          auto_emoji: document.getElementById('chkAutoEmoji')?.checked ?? true,
+          kinetic_pop: document.getElementById('chkKineticPop')?.checked ?? true,
+          progress_bar: document.getElementById('chkProgressBar')?.checked ?? false,
+          progress_bar_color: transformState.progressBarColor || '#34d399',
+          audio_mastering: document.getElementById('chkAudioMastering')?.checked ?? true,
+          cut_silence: false,
         };
 
         const resp = await fetch('/api/clips/re-render', {
@@ -1436,7 +1594,128 @@
       setTimeout(() => t.classList.remove('show'), 3000);
     }
 
+    async function openSocialKitModal() {
+      const modal = document.getElementById('socialModalOverlay');
+      modal.style.display = 'flex';
+
+      if (!cachedSocialKit) {
+        try {
+          const resp = await fetch(`/api/clips/${encodeURIComponent(clipFilename)}/social-kit`);
+          if (resp.ok) {
+            cachedSocialKit = await resp.json();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (cachedSocialKit) {
+        const titlesContainer = document.getElementById('socialTitlesList');
+        titlesContainer.innerHTML = '';
+        (cachedSocialKit.titles || []).forEach(t => {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:10px 14px; background:var(--bg-subtle); border:1px solid var(--border); border-radius:6px; font-size:12px; color:var(--text); cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:border-color 0.15s;';
+          div.onmouseenter = () => div.style.borderColor = 'var(--emerald)';
+          div.onmouseleave = () => div.style.borderColor = 'var(--border)';
+          div.innerHTML = `<span style="font-weight:600;">${t}</span><span style="font-size:11px; color:var(--emerald);">Click to copy</span>`;
+          div.onclick = () => copyText(t, 'Title copied!');
+          titlesContainer.appendChild(div);
+        });
+
+        document.getElementById('socialDescArea').value = cachedSocialKit.description || '';
+
+        const tagsContainer = document.getElementById('socialTagsList');
+        tagsContainer.innerHTML = '';
+        (cachedSocialKit.hashtags || []).forEach(tag => {
+          const span = document.createElement('span');
+          span.style.cssText = 'padding:4px 10px; background:rgba(255,255,255,0.06); border:1px solid var(--border); border-radius:9999px; font-size:11px; color:var(--text-muted); cursor:pointer; font-weight:600;';
+          span.innerText = tag;
+          span.onclick = () => copyText(tag, `Copied ${tag}`);
+          tagsContainer.appendChild(span);
+        });
+      }
+    }
+
+    function closeSocialKitModal() {
+      document.getElementById('socialModalOverlay').style.display = 'none';
+    }
+
+    function copyDescription() {
+      const txt = document.getElementById('socialDescArea').value;
+      copyText(txt, 'Caption copied to clipboard!');
+    }
+
+    function copyHashtags() {
+      if (cachedSocialKit && cachedSocialKit.hashtag_string) {
+        copyText(cachedSocialKit.hashtag_string, 'All hashtags copied!');
+      }
+    }
+
+    function copyText(txt, msg) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(() => {
+          showToast(msg || 'Copied to clipboard!');
+        }).catch(() => {
+          prompt('Copy text:', txt);
+        });
+      } else {
+        prompt('Copy text:', txt);
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', initEditor);
   </script>
+
+  <!-- SOCIAL PUBLISHING KIT MODAL -->
+  <div class="social-modal-overlay" id="socialModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:100; align-items:center; justify-content:center;">
+    <div class="social-modal-card" style="width:600px; max-width:92vw; max-height:88vh; background:var(--bg-panel); border:1px solid var(--border); border-radius:12px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 80px rgba(0,0,0,0.95);">
+      <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--bg-subtle);">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">🚀</span>
+          <h3 style="font-size:14px; font-weight:700; color:var(--text);">Viral Social Publishing Kit</h3>
+        </div>
+        <button type="button" onclick="closeSocialKitModal()" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:18px; padding:4px 8px;">✕</button>
+      </div>
+      
+      <div style="padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:18px;">
+        <!-- TITLES -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.5px;">High CTR Viral Titles</span>
+            <span style="font-size:11px; color:var(--text-subtle);">Click title to copy</span>
+          </div>
+          <div id="socialTitlesList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.5px;">Optimized Video Description</span>
+            <button type="button" class="back-btn" onclick="copyDescription()" style="font-size:11px; padding:3px 10px;">📋 Copy Caption</button>
+          </div>
+          <textarea id="socialDescArea" readonly style="width:100%; height:95px; background:var(--bg-subtle); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:inherit; font-size:12px; padding:10px; resize:none; outline:none; line-height:1.5;"></textarea>
+        </div>
+
+        <!-- HASHTAGS -->
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.5px;">Viral Hashtags</span>
+            <button type="button" class="back-btn" onclick="copyHashtags()" style="font-size:11px; padding:3px 10px; color:var(--emerald);">🔥 Copy All Tags</button>
+          </div>
+          <div id="socialTagsList" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
+        </div>
+
+        <!-- BEST TIMES -->
+        <div style="background:var(--bg-subtle); border:1px solid var(--border); border-radius:8px; padding:14px;">
+          <span style="font-size:11px; font-weight:700; color:var(--text); text-transform:uppercase; display:block; margin-bottom:8px; letter-spacing:0.5px;">⏰ Recommended Posting Times</span>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-size:11px; color:var(--text-muted);">
+            <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid var(--border);"><strong style="color:#ffffff; display:block; margin-bottom:2px;">TikTok</strong> 12:00 - 3:00 PM<br>7:00 - 10:00 PM</div>
+            <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid var(--border);"><strong style="color:#ffffff; display:block; margin-bottom:2px;">YouTube Shorts</strong> 2:00 PM - 5:00 PM</div>
+            <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid var(--border);"><strong style="color:#ffffff; display:block; margin-bottom:2px;">Instagram Reels</strong> 9:00 - 11:00 AM<br>6:00 - 9:00 PM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
