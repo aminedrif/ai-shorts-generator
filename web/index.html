@@ -3839,12 +3839,12 @@
                       </select>
                     </div>
 
-                    <!-- STUDIO VIDEO EDITOR BUTTON -->
+                    <!-- STUDIO VIDEO EDITOR BUTTON (CAPCUT NLE MODE) -->
                     <button 
                       type="button" 
                       class="edit-clip-btn" 
-                      title="Open Studio Editor (Camera Reframing, Zoom & Filters)"
-                      onclick="openEditorModal('${escapeHtml(clip.name)}', '${escapeHtml(clip.title || clip.name)}', '${clip.download_url}')"
+                      title="Open Full CapCut-Style Editor"
+                      onclick="window.location.href = '/editor.html?clip=' + encodeURIComponent('${clip.name}')"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>

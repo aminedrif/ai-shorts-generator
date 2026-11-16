@@ -956,16 +956,19 @@ class VideoEditor:
         clip_filename: str,
         camera_mode: str = "custom",      # "custom", "auto", "left", "center", "right", "split_screen"
         crop_x_percent: float = 0.5,      # 0.0 (far left) to 1.0 (far right)
-        zoom: float = 1.0,               # 1.0 to 1.6
+        zoom: float = 1.0,               # 1.0 to 2.5
         filter_preset: str = "none",     # "none", "moody", "teal_orange", "vintage", "crisp", "noir"
         highlight_color: Optional[str] = None,
         font_name: Optional[str] = None,
         font_size: Optional[int] = None,
         caption_position: str = "bottom", # "bottom", "center", "top"
+        trim_start_delta: float = 0.0,
+        trim_end_delta: float = 0.0,
+        sfx_events: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Re-renders an existing short clip with updated camera framing (left, center, right, custom pan),
-        zoom factor (1.0x - 1.6x), color grading filters, and subtitle styling in seconds.
+        zoom factor (1.0x - 2.5x), color grading filters, timeline trimming, SFX, and subtitle styling in seconds.
         """
         target_clip = self.output_dir / Path(clip_filename).name
         if not target_clip.exists():
@@ -980,9 +983,14 @@ class VideoEditor:
             except Exception:
                 pass
 
-        start_time = float(meta.get("start", 0.0))
-        end_time = float(meta.get("end", 0.0))
-        duration = end_time - start_time if end_time > start_time else get_media_duration(target_clip)
+        raw_start = float(meta.get("start", 0.0))
+        raw_end = float(meta.get("end", 0.0))
+        if raw_end <= raw_start:
+            raw_end = raw_start + get_media_duration(target_clip)
+
+        start_time = max(0.0, raw_start + float(trim_start_delta or 0.0))
+        end_time = max(start_time + 1.0, raw_end + float(trim_end_delta or 0.0))
+        duration = end_time - start_time
         title = meta.get("title") or target_clip.stem
         segments = meta.get("segments") or []
         source_path_str = meta.get("source_video")
@@ -1005,7 +1013,7 @@ class VideoEditor:
 
         orig_w, orig_h = get_video_dimensions(source_video)
         target_w, target_h = 1080, 1920
-        clamped_zoom = max(1.0, min(1.6, float(zoom or 1.0)))
+        clamped_zoom = max(1.0, min(2.5, float(zoom or 1.0)))
 
         COLOR_FILTERS = {
             "moody": "eq=contrast=1.15:brightness=-0.02:saturation=0.90,colorbalance=rs=-0.04:gs=-0.02:bs=0.08",

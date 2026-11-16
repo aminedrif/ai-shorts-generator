@@ -67,6 +67,7 @@ load_tasks_cache()
 
 # Serve output directory for media downloads
 app.mount("/outputs", StaticFiles(directory=str(config.output_dir)), name="outputs")
+app.mount("/temp", StaticFiles(directory=str(config.temp_dir)), name="temp")
 
 
 class GenerateJobRequest(BaseModel):
@@ -376,6 +377,98 @@ class ReRenderRequest(BaseModel):
     caption_position: str = "bottom"
     font_name: Optional[str] = "Montserrat"
     font_size: Optional[int] = 64
+    trim_start_delta: float = 0.0
+    trim_end_delta: float = 0.0
+    sfx_events: Optional[list] = None
+
+
+@app.get("/api/clips/{filename}/details")
+def get_clip_details(filename: str):
+    """Retrieves full-resolution master metadata, subtitle words, and framing config for the NLE Editor."""
+    import shutil
+    clean_name = Path(filename).name
+    clip_file = config.output_dir / clean_name
+    if not clip_file.exists():
+        raise HTTPException(status_code=404, detail="Clip not found")
+
+    meta_file = clip_file.with_suffix(".json")
+    meta = {}
+    if meta_file.exists():
+        try:
+            with open(meta_file, "r", encoding="utf-8") as mf:
+                meta = json.load(mf)
+        except Exception:
+            pass
+
+    source_path_str = meta.get("source_video")
+    master_url = None
+    master_dims = [1920, 1080]
+    is_master_widescreen = True
+
+    if source_path_str and Path(source_path_str).exists():
+        master_path = Path(source_path_str)
+        try:
+            rel = master_path.relative_to(config.temp_dir)
+            master_url = f"/temp/{rel.as_posix()}"
+        except ValueError:
+            try:
+                rel = master_path.relative_to(config.output_dir)
+                master_url = f"/outputs/{rel.as_posix()}"
+            except ValueError:
+                cached = config.temp_dir / f"master_{clean_name}"
+                if not cached.exists():
+                    shutil.copy2(str(master_path), str(cached))
+                master_url = f"/temp/{cached.name}"
+        try:
+            from src.editor import get_video_dimensions
+            master_dims = list(get_video_dimensions(master_path))
+            is_master_widescreen = master_dims[0] > master_dims[1]
+        except Exception:
+            pass
+    else:
+        slice_cands = list(config.temp_dir.glob(f"*{clip_file.stem}*")) + list(config.temp_dir.glob("source_*.mp4"))
+        for cand in slice_cands:
+            if cand.exists() and cand != clip_file:
+                master_url = f"/temp/{cand.name}"
+                try:
+                    from src.editor import get_video_dimensions
+                    master_dims = list(get_video_dimensions(cand))
+                    is_master_widescreen = master_dims[0] > master_dims[1]
+                except Exception:
+                    pass
+                break
+
+    if not master_url:
+        master_url = f"/outputs/{clean_name}"
+        is_master_widescreen = False
+
+    start = float(meta.get("start", 0.0))
+    end = float(meta.get("end", 30.0))
+    duration = end - start if end > start else 30.0
+
+    return {
+        "filename": clean_name,
+        "title": meta.get("title", clip_file.stem),
+        "hook": meta.get("hook", ""),
+        "score": meta.get("score", 90),
+        "start": start,
+        "end": end,
+        "duration": duration,
+        "clip_url": f"/outputs/{clean_name}",
+        "master_url": master_url,
+        "master_width": master_dims[0],
+        "master_height": master_dims[1],
+        "is_master_widescreen": is_master_widescreen,
+        "segments": meta.get("segments", []),
+        "style": meta.get("style", "smart_crop"),
+        "highlight_color": meta.get("highlight_color", "#facc15"),
+        "font_name": meta.get("font_name", "Montserrat"),
+        "font_size": meta.get("font_size", 64),
+        "camera_mode": meta.get("camera_mode", "center"),
+        "crop_x_percent": meta.get("crop_x_percent", 0.5),
+        "zoom": meta.get("zoom", 1.0),
+        "filter_preset": meta.get("filter_preset", "none"),
+    }
 
 
 @app.post("/api/clips/re-render")
@@ -393,6 +486,9 @@ def re_render_clip_endpoint(req: ReRenderRequest):
             caption_position=req.caption_position,
             font_name=req.font_name,
             font_size=req.font_size,
+            trim_start_delta=req.trim_start_delta,
+            trim_end_delta=req.trim_end_delta,
+            sfx_events=req.sfx_events,
         )
         return {"status": "ok", "clip": res}
     except Exception as e:

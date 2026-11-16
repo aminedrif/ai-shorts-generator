@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A-S-G Studio - CapCut NLE Editor</title>
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --bg-panel: #121215;
+      --bg-subtle: #18181c;
+      --bg-hover: #222227;
+      --border: #27272a;
+      --border-bright: #3f3f46;
+      --text: #fafafa;
+      --text-muted: #a1a1aa;
+      --text-subtle: #71717a;
+      --emerald: #34d399;
+      --emerald-bg: rgba(52, 211, 153, 0.1);
+      --yellow: #facc15;
+      --red: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TOP APPLICATION BAR */
+    .app-topbar {
+      height: 52px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+    .back-btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-bright);
+    }
+
+    .clip-title-pill {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .topbar-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ratio-pill-group {
+      display: flex;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px;
+    }
+
+    .ratio-pill {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .ratio-pill.active {
+      background: #ffffff;
+      color: #09090b;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .export-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 6px;
+      background: #ffffff;
+      border: none;
+      color: #09090b;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(255, 255, 255, 0.15);
+      transition: all 0.15s ease;
+    }
+    .export-btn:hover:not(:disabled) {
+      background: #f4f4f5;
+      transform: translateY(-1px);
+    }
+    .export-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* MAIN WORKSPACE 3-PANE LAYOUT */
+    .workspace-main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      background: #09090b;
+    }
+
+    /* 1. LEFT TOOLBOX & ASSETS */
+    .left-toolbox {
+      width: 330px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .toolbox-tabs-bar {
+      display: flex;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+      padding: 0 6px;
+      overflow-x: auto;
+    }
+
+    .toolbox-tab-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .toolbox-tab-btn:hover {
+      color: var(--text);
+    }
+    .toolbox-tab-btn.active {
+      color: #ffffff;
+      border-bottom-color: #ffffff;
+    }
+
+    .toolbox-tab-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .toolbox-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 16px;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .panel-section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .reframe-presets-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .preset-chip {
+      height: 38px;
+      padding: 0 10px;
+      border-radius: 6px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .preset-chip:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-bright);
+      color: #ffffff;
+    }
+    .preset-chip.active {
+      background: #ffffff;
+      color: #09090b;
+      border-color: #ffffff;
+    }
+
+    .sfx-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      transition: all 0.15s;
+    }
+    .sfx-item:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-bright);
+    }
+
+    .sfx-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sfx-play-btn, .sfx-add-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sfx-play-btn:hover { background: #ffffff; color: #09090b; }
+    .sfx-add-btn:hover { background: var(--emerald); color: #09090b; }
+
+    /* 2. CENTER CANVAS (CAPCUT INTERACTIVE DRAGGABLE VIEWPORT) */
+    .center-canvas-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: #050507;
+      min-width: 0;
+    }
+
+    .canvas-mode-bar {
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: rgba(18, 18, 21, 0.7);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+
+    .mode-switch-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 4px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .mode-switch-btn.active {
+      background: var(--bg-subtle);
+      border-color: var(--border);
+      color: #ffffff;
+    }
+
+    .canvas-viewport-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+    }
+    .canvas-viewport-container:active {
+      cursor: grabbing;
+    }
+
+    /* 9:16 Frame Device Mockup */
+    .phone-canvas-frame {
+      width: 320px;
+      height: 568px;
+      border-radius: 18px;
+      background: #000000;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 0 1px #27272a;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* The interactive video layer */
+    .master-video-element {
+      position: absolute;
+      width: auto;
+      height: 100%;
+      min-width: 100%;
+      object-fit: cover;
+      pointer-events: none;
+      transform-origin: center center;
+      will-change: transform;
+    }
+
+    /* Draggable Crop Indicator Bounding Box */
+    .crop-bounding-box {
+      position: absolute;
+      inset: 0;
+      border: 2px dashed rgba(255, 255, 255, 0.3);
+      border-radius: 18px;
+      pointer-events: none;
+    }
+
+    .canvas-watermark-overlay {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(4px);
+      font-size: 11px;
+      font-weight: 600;
+      color: #fafafa;
+      pointer-events: none;
+    }
+
+    /* FLOATING CANVAS CONTROLLER */
+    .canvas-floating-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 18px;
+      background: rgba(18, 18, 21, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 9999px;
+      backdrop-filter: blur(12px);
+      z-index: 15;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .canvas-play-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: none;
+      color: #09090b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .canvas-play-btn:hover {
+      transform: scale(1.08);
+    }
+
+    .timecode-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    /* 3. RIGHT TRANSFORM & INSPECTOR */
+    .right-inspector {
+      width: 280px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      padding: 16px;
+      gap: 20px;
+      overflow-y: auto;
+      z-index: 20;
+    }
+
+    .inspector-group {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .inspector-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .inspector-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .inspector-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .inspector-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .slider-input {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+      accent-color: #ffffff;
+      cursor: pointer;
+    }
+
+    /* 4. BOTTOM MULTI-TRACK TIMELINE (CAPCUT NLE TIMELINE) */
+    .timeline-dock {
+      height: 250px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      z-index: 30;
+    }
+
+    .timeline-toolbar {
+      height: 40px;
+      background: var(--bg-subtle);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+
+    .timeline-tools-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tl-tool-btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: 4px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tl-tool-btn:hover {
+      background: var(--bg-hover);
+      color: #ffffff;
+    }
+
+    .timeline-ruler-and-tracks {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-x: auto;
+      position: relative;
+      background: #0e0e12;
+    }
+
+    /* Timecode ruler */
+    .timeline-ruler {
+      height: 24px;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      background: #141418;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-subtle);
+    }
+
+    /* Red playhead line */
+    .playhead-needle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      z-index: 40;
+      pointer-events: none;
+      transform: translateX(-50%);
+    }
+
+    .playhead-needle::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -5px;
+      width: 12px;
+      height: 12px;
+      background: #ef4444;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+    }
+
+    .tracks-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 10px 16px;
+      position: relative;
+    }
+
+    .timeline-track-row {
+      height: 38px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .track-tag-badge {
+      position: absolute;
+      left: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-subtle);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2px 6px;
+      border-radius: 4px;
+      z-index: 5;
+    }
+
+    /* Video clip segment in timeline */
+    .track-clip-block {
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      border-radius: 5px;
+      background: #27272a;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      color: #fafafa;
+      font-size: 11px;
+      font-weight: 600;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .trim-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 10px;
+      background: rgba(255, 255, 255, 0.4);
+      cursor: ew-resize;
+      z-index: 10;
+    }
+    .trim-handle-left { left: 0; border-top-left-radius: 4px; border-bottom-left-radius: 4px; }
+    .trim-handle-right { right: 0; border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+
+    /* Audio waveform track */
+    .waveform-canvas {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: 0.6;
+    }
+
+    /* Subtitle block */
+    .subtitle-cue-block {
+      position: absolute;
+      height: 28px;
+      background: rgba(250, 204, 21, 0.15);
+      border: 1px solid rgba(250, 204, 21, 0.4);
+      border-radius: 4px;
+      color: #facc15;
+      font-size: 10px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
+    /* Toast notification */
+    .editor-toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 18px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+      transform: translateY(-80px);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 200;
+    }
+    .editor-toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP APP BAR -->
+  <header class="app-topbar">
+    <div class="topbar-left">
+      <a href="/" class="back-btn" title="Return to ASG Studio">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+        Studio
+      </a>
+      <span class="clip-title-pill" id="clipTitlePill">Loading clip...</span>
+    </div>
+
+    <div class="topbar-center">
+      <div class="ratio-pill-group">
+        <button type="button" class="ratio-pill active" onclick="setCanvasRatio('9:16')">9:16 Shorts</button>
+        <button type="button" class="ratio-pill" onclick="setCanvasRatio('1:1')">1:1 Square</button>
+        <button type="button" class="ratio-pill" onclick="setCanvasRatio('16:9')">16:9 Wide</button>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <button type="button" class="export-btn" id="exportBtn" onclick="exportEditedShort()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export Short
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE -->
+  <div class="workspace-main">
+    
+    <!-- LEFT TOOLBOX -->
+    <aside class="left-toolbox">
+      <div class="toolbox-tabs-bar">
+        <button type="button" class="toolbox-tab-btn active" onclick="switchToolTab('reframe')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          Reframe
+        </button>
+        <button type="button" class="toolbox-tab-btn" onclick="switchToolTab('sfx')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          SFX & Audio
+        </button>
+        <button type="button" class="toolbox-tab-btn" onclick="switchToolTab('captions')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+          Captions
+        </button>
+        <button type="button" class="toolbox-tab-btn" onclick="switchToolTab('filters')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z"/></svg>
+          Filters
+        </button>
+      </div>
+
+      <div class="toolbox-content">
+        <!-- TAB 1: REFRAME -->
+        <div class="tab-panel active" id="tabPanel_reframe">
+          <div>
+            <div class="panel-section-title">
+              <span>Camera Reframe Presets</span>
+            </div>
+            <div class="reframe-presets-grid">
+              <button type="button" class="preset-chip active" id="presetCenter" onclick="applyReframePreset('center')">Center Focus</button>
+              <button type="button" class="preset-chip" id="presetLeft" onclick="applyReframePreset('left')">Speaker Left</button>
+              <button type="button" class="preset-chip" id="presetRight" onclick="applyReframePreset('right')">Speaker Right</button>
+              <button type="button" class="preset-chip" id="presetSplit" onclick="applyReframePreset('split_screen')">Split Screen</button>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-subtle); line-height: 1.5; background: var(--bg-subtle); padding: 12px; border-radius: 6px; border: 1px solid var(--border);">
+            💡 <strong>Direct Canvas Control:</strong> Click and drag directly on the video canvas to position the camera anywhere across the full widescreen master. Scroll mouse wheel to zoom.
+          </div>
+        </div>
+
+        <!-- TAB 2: SFX & AUDIO -->
+        <div class="tab-panel" id="tabPanel_sfx">
+          <div class="panel-section-title">
+            <span>Viral Sound Effects</span>
+          </div>
+          <div class="sfx-item">
+            <div class="sfx-info">
+              <button type="button" class="sfx-play-btn" onclick="previewSFX('whoosh')">▶</button>
+              <span style="font-size: 12px; font-weight: 600;">Whoosh Fast</span>
+            </div>
+            <button type="button" class="sfx-add-btn" onclick="dropSFXAtPlayhead('whoosh')" title="Add at playhead">+</button>
+          </div>
+          <div class="sfx-item">
+            <div class="sfx-info">
+              <button type="button" class="sfx-play-btn" onclick="previewSFX('ding')">▶</button>
+              <span style="font-size: 12px; font-weight: 600;">Success Ding</span>
+            </div>
+            <button type="button" class="sfx-add-btn" onclick="dropSFXAtPlayhead('ding')" title="Add at playhead">+</button>
+          </div>
+          <div class="sfx-item">
+            <div class="sfx-info">
+              <button type="button" class="sfx-play-btn" onclick="previewSFX('pop')">▶</button>
+              <span style="font-size: 12px; font-weight: 600;">Bubble Pop</span>
+            </div>
+            <button type="button" class="sfx-add-btn" onclick="dropSFXAtPlayhead('pop')" title="Add at playhead">+</button>
+          </div>
+          <div class="sfx-item">
+            <div class="sfx-info">
+              <button type="button" class="sfx-play-btn" onclick="previewSFX('thud')">▶</button>
+              <span style="font-size: 12px; font-weight: 600;">Dramatic Bass Thud</span>
+            </div>
+            <button type="button" class="sfx-add-btn" onclick="dropSFXAtPlayhead('thud')" title="Add at playhead">+</button>
+          </div>
+        </div>
+
+        <!-- TAB 3: CAPTIONS -->
+        <div class="tab-panel" id="tabPanel_captions">
+          <div class="panel-section-title">
+            <span>Highlight Color</span>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button type="button" style="width: 24px; height: 24px; border-radius: 50%; background: #facc15; border: 2px solid #fff; cursor: pointer;" onclick="setCaptionColor('#facc15')"></button>
+            <button type="button" style="width: 24px; height: 24px; border-radius: 50%; background: #34d399; border: none; cursor: pointer;" onclick="setCaptionColor('#34d399')"></button>
+            <button type="button" style="width: 24px; height: 24px; border-radius: 50%; background: #38bdf8; border: none; cursor: pointer;" onclick="setCaptionColor('#38bdf8')"></button>
+            <button type="button" style="width: 24px; height: 24px; border-radius: 50%; background: #f87171; border: none; cursor: pointer;" onclick="setCaptionColor('#f87171')"></button>
+            <button type="button" style="width: 24px; height: 24px; border-radius: 50%; background: #fafafa; border: none; cursor: pointer;" onclick="setCaptionColor('#fafafa')"></button>
+          </div>
+          <div class="panel-section-title">
+            <span>Subtitle Position</span>
+          </div>
+          <div class="reframe-presets-grid">
+            <button type="button" class="preset-chip active" id="capPosBottom" onclick="setCaptionPos('bottom')">Bottom</button>
+            <button type="button" class="preset-chip" id="capPosCenter" onclick="setCaptionPos('center')">Center</button>
+            <button type="button" class="preset-chip" id="capPosTop" onclick="setCaptionPos('top')">Top Safe</button>
+          </div>
+        </div>
+
+        <!-- TAB 4: FILTERS -->
+        <div class="tab-panel" id="tabPanel_filters">
+          <div class="panel-section-title">
+            <span>Cinematic Color Grading</span>
+          </div>
+          <div class="reframe-presets-grid">
+            <button type="button" class="preset-chip active" id="filterNone" onclick="setFilter('none')">Original</button>
+            <button type="button" class="preset-chip" id="filterMoody" onclick="setFilter('moody')">Moody Zinc</button>
+            <button type="button" class="preset-chip" id="filterTeal" onclick="setFilter('teal_orange')">Teal & Orange</button>
+            <button type="button" class="preset-chip" id="filterVintage" onclick="setFilter('vintage')">Vintage 35mm</button>
+            <button type="button" class="preset-chip" id="filterCrisp" onclick="setFilter('crisp')">Crisp 4K</button>
+            <button type="button" class="preset-chip" id="filterNoir" onclick="setFilter('noir')">Noir B&W</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER CANVAS (CAPCUT INTERACTIVE DRAGGABLE VIEWPORT) -->
+    <main class="center-canvas-area" id="centerCanvasArea">
+      <div class="canvas-mode-bar">
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="mode-switch-btn active" id="btnViewPhone" onclick="switchCanvasView('phone')">9:16 Canvas</button>
+          <button type="button" class="mode-switch-btn" id="btnViewMaster" onclick="switchCanvasView('master')">16:9 Master View</button>
+        </div>
+        <span style="font-size: 11px; color: var(--text-subtle);" id="canvasResBadge">1080x1920 (Native Master)</span>
+      </div>
+
+      <div class="canvas-viewport-container" id="canvasContainer">
+        <!-- 9:16 Phone Frame Mockup -->
+        <div class="phone-canvas-frame" id="phoneCanvasFrame">
+          <video id="masterVideo" class="master-video-element" playsinline loop muted></video>
+          <div class="crop-bounding-box" id="cropBoundingBox"></div>
+          <div class="canvas-watermark-overlay" id="canvasOverlayTag">Full Resolution Master</div>
+        </div>
+      </div>
+
+      <!-- Floating Controls -->
+      <div class="canvas-floating-controls">
+        <button type="button" class="canvas-play-btn" id="playPauseBtn" onclick="togglePlayPause()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+        </button>
+        <span class="timecode-display" id="timecodeDisplay">00:00.0 / 00:00.0</span>
+      </div>
+    </main>
+
+    <!-- RIGHT TRANSFORM INSPECTOR -->
+    <aside class="right-inspector">
+      <div class="inspector-group">
+        <div class="inspector-title">
+          <span>Transform & Camera</span>
+          <button type="button" onclick="resetTransform()" style="background:none;border:none;color:var(--text-subtle);font-size:11px;cursor:pointer;">Reset</button>
+        </div>
+        <div class="inspector-row">
+          <div class="inspector-label-row">
+            <span>Scale (Zoom)</span>
+            <span id="scaleValLabel">100%</span>
+          </div>
+          <input type="range" class="slider-input" id="scaleSlider" min="100" max="250" value="100" oninput="handleScaleInput(this.value)">
+        </div>
+        <div class="inspector-row">
+          <div class="inspector-label-row">
+            <span>Horizontal Pan (X)</span>
+            <span id="panValLabel">0px</span>
+          </div>
+          <input type="range" class="slider-input" id="panSlider" min="-400" max="400" value="0" oninput="handlePanInput(this.value)">
+        </div>
+        <div class="inspector-row">
+          <div class="inspector-label-row">
+            <span>Vertical Tilt (Y)</span>
+            <span id="tiltValLabel">0px</span>
+          </div>
+          <input type="range" class="slider-input" id="tiltSlider" min="-250" max="250" value="0" oninput="handleTiltInput(this.value)">
+        </div>
+      </div>
+
+      <div class="inspector-group">
+        <div class="inspector-title">
+          <span>Video Quality</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); display:flex; justify-content:space-between; margin-bottom: 6px;">
+          <span>Source:</span>
+          <span style="color:#ffffff; font-weight:600;" id="inspMasterDims">1920x1080</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); display:flex; justify-content:space-between;">
+          <span>Target Export:</span>
+          <span style="color:var(--emerald); font-weight:600;">1080x1920 (9:16)</span>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- BOTTOM MULTI-TRACK TIMELINE (CAPCUT NLE TIMELINE) -->
+  <footer class="timeline-dock">
+    <div class="timeline-toolbar">
+      <div class="timeline-tools-left">
+        <button type="button" class="tl-tool-btn" onclick="togglePlayPause()">
+          <span id="tlPlayIcon">▶ Play (Space)</span>
+        </button>
+        <button type="button" class="tl-tool-btn" onclick="splitClipAtPlayhead()">
+          <span>✂ Split (S)</span>
+        </button>
+      </div>
+      <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:var(--text-muted);" id="timelineClock">
+        00:00:00:00
+      </div>
+    </div>
+
+    <div class="timeline-ruler-and-tracks" id="timelineScrollArea">
+      <!-- Playhead Needle -->
+      <div class="playhead-needle" id="playheadNeedle" style="left: 0%;"></div>
+
+      <!-- Timecode Ruler -->
+      <div class="timeline-ruler" id="timelineRuler"></div>
+
+      <!-- Tracks Container -->
+      <div class="tracks-container">
+        <!-- V1: Video Master Track -->
+        <div class="timeline-track-row" id="videoTrackRow">
+          <span class="track-tag-badge">V1 Video</span>
+          <div class="track-clip-block" id="videoClipBlock" style="left: 0%; width: 100%;">
+            <div class="trim-handle trim-handle-left" id="trimLeftHandle"></div>
+            <span id="trackClipTitle">Master Video Clip</span>
+            <div class="trim-handle trim-handle-right" id="trimRightHandle"></div>
+          </div>
+        </div>
+
+        <!-- A1: Audio Waveform Track -->
+        <div class="timeline-track-row" id="audioTrackRow">
+          <span class="track-tag-badge">A1 Audio</span>
+          <canvas class="waveform-canvas" id="waveformCanvas"></canvas>
+        </div>
+
+        <!-- T1: Subtitle Cue Track -->
+        <div class="timeline-track-row" id="subtitleTrackRow">
+          <span class="track-tag-badge">T1 Captions</span>
+          <div id="subtitlesTrackContent" style="width: 100%; height: 100%; position: relative;"></div>
+        </div>
+
+        <!-- SFX: Sound Effects Track -->
+        <div class="timeline-track-row" id="sfxTrackRow">
+          <span class="track-tag-badge">SFX Effects</span>
+          <div id="sfxTrackContent" style="width: 100%; height: 100%; position: relative;"></div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast Notification -->
+  <div class="editor-toast" id="editorToast">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <span id="editorToastMsg">Export started...</span>
+  </div>
+
+  <script>
+    // State
+    const urlParams = new URLSearchParams(window.location.search);
+    const clipFilename = urlParams.get('clip') || '';
+
+    let clipDetails = null;
+    let isPlaying = false;
+    let canvasViewMode = 'phone'; // 'phone' or 'master'
+    
+    // Transform State
+    let transformState = {
+      scale: 1.0,
+      panX: 0,
+      panY: 0,
+      filter: 'none',
+      captionPos: 'bottom',
+      highlightColor: '#facc15',
+    };
+
+    // Timeline State
+    let duration = 30.0;
+    let trimStart = 0.0;
+    let trimEnd = 30.0;
+    let sfxEvents = [];
+
+    // Drag tracking on canvas
+    let isDraggingCanvas = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let startPanX = 0;
+    let startPanY = 0;
+
+    // Elements
+    const video = document.getElementById('masterVideo');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const timecodeDisplay = document.getElementById('timecodeDisplay');
+    const playheadNeedle = document.getElementById('playheadNeedle');
+    const timelineClock = document.getElementById('timelineClock');
+    const scaleSlider = document.getElementById('scaleSlider');
+    const panSlider = document.getElementById('panSlider');
+    const tiltSlider = document.getElementById('tiltSlider');
+
+    async function initEditor() {
+      if (!clipFilename) {
+        alert('No clip specified. Returning to Studio.');
+        window.location.href = '/';
+        return;
+      }
+
+      try {
+        const resp = await fetch(`/api/clips/${encodeURIComponent(clipFilename)}/details`);
+        if (!resp.ok) throw new Error('Failed to load clip details');
+        clipDetails = await resp.json();
+
+        document.getElementById('clipTitlePill').innerText = clipDetails.title || clipFilename;
+        document.title = `Editing: ${clipDetails.title || clipFilename} - A-S-G Studio`;
+        document.getElementById('trackClipTitle').innerText = clipDetails.title || clipFilename;
+        document.getElementById('inspMasterDims').innerText = `${clipDetails.master_width}x${clipDetails.master_height}`;
+
+        duration = clipDetails.duration || 30.0;
+        trimStart = 0.0;
+        trimEnd = duration;
+
+        // Set video source to the full-resolution master
+        video.src = clipDetails.master_url || clipDetails.clip_url;
+        video.load();
+
+        initCanvasInteraction();
+        initTimeline();
+        drawDummyWaveform();
+        renderSubtitleCues(clipDetails.segments || []);
+
+      } catch (err) {
+        console.error('Editor init failed:', err);
+        showToast('Error loading clip metadata');
+      }
+    }
+
+    // CANVAS DIRECT MOUSE INTERACTION (Requirement 2)
+    function initCanvasInteraction() {
+      const container = document.getElementById('canvasContainer');
+
+      container.addEventListener('mousedown', (e) => {
+        isDraggingCanvas = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        startPanX = transformState.panX;
+        startPanY = transformState.panY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDraggingCanvas) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        
+        transformState.panX = startPanX + dx;
+        transformState.panY = startPanY + dy;
+        applyVideoTransform();
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDraggingCanvas = false;
+      });
+
+      // Mouse Wheel Zoom
+      container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 0.05 : -0.05;
+        transformState.scale = Math.max(1.0, Math.min(2.5, transformState.scale + delta));
+        applyVideoTransform();
+      }, { passive: false });
+    }
+
+    function applyVideoTransform() {
+      video.style.transform = `scale(${transformState.scale}) translate(${transformState.panX / transformState.scale}px, ${transformState.panY / transformState.scale}px)`;
+      
+      // Update Inspector Sliders
+      scaleSlider.value = Math.round(transformState.scale * 100);
+      document.getElementById('scaleValLabel').innerText = `${scaleSlider.value}%`;
+
+      panSlider.value = transformState.panX;
+      document.getElementById('panValLabel').innerText = `${transformState.panX}px`;
+
+      tiltSlider.value = transformState.panY;
+      document.getElementById('tiltValLabel').innerText = `${transformState.panY}px`;
+    }
+
+    function handleScaleInput(val) {
+      transformState.scale = parseInt(val) / 100.0;
+      applyVideoTransform();
+    }
+
+    function handlePanInput(val) {
+      transformState.panX = parseInt(val);
+      applyVideoTransform();
+    }
+
+    function handleTiltInput(val) {
+      transformState.panY = parseInt(val);
+      applyVideoTransform();
+    }
+
+    function resetTransform() {
+      transformState.scale = 1.0;
+      transformState.panX = 0;
+      transformState.panY = 0;
+      applyVideoTransform();
+    }
+
+    // TIMELINE RULER & PLAYHEAD (Requirement 3)
+    function initTimeline() {
+      const ruler = document.getElementById('timelineRuler');
+      ruler.innerHTML = '';
+      const totalSeconds = Math.ceil(duration);
+      
+      for (let s = 0; s <= totalSeconds; s += 2) {
+        const pct = (s / duration) * 100;
+        const tick = document.createElement('div');
+        tick.style.position = 'absolute';
+        tick.style.left = `${pct}%`;
+        tick.style.top = '4px';
+        tick.style.fontSize = '9px';
+        tick.innerText = `00:${s.toString().padStart(2, '0')}`;
+        ruler.appendChild(tick);
+      }
+
+      // Video time update
+      video.addEventListener('timeupdate', () => {
+        const ct = video.currentTime;
+        const pct = (ct / duration) * 100;
+        playheadNeedle.style.left = `${Math.min(100, Math.max(0, pct))}%`;
+
+        const curFormatted = formatTimecode(ct);
+        const durFormatted = formatTimecode(duration);
+        timecodeDisplay.innerText = `${curFormatted} / ${durFormatted}`;
+        timelineClock.innerText = `00:00:${curFormatted}:00`;
+      });
+
+      // Timeline click to scrub
+      const scrollArea = document.getElementById('timelineScrollArea');
+      scrollArea.addEventListener('click', (e) => {
+        const rect = scrollArea.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const pct = Math.max(0, Math.min(1, clickX / rect.width));
+        video.currentTime = pct * duration;
+      });
+    }
+
+    function drawDummyWaveform() {
+      const canvas = document.getElementById('waveformCanvas');
+      canvas.width = canvas.parentElement.clientWidth || 800;
+      canvas.height = canvas.parentElement.clientHeight || 38;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#34d399';
+
+      const bars = Math.floor(canvas.width / 4);
+      for (let i = 0; i < bars; i++) {
+        const h = Math.abs(Math.sin(i * 0.15) * Math.cos(i * 0.08)) * canvas.height * 0.8;
+        const y = (canvas.height - h) / 2;
+        ctx.fillRect(i * 4, y, 2, h);
+      }
+    }
+
+    function renderSubtitleCues(segments) {
+      const container = document.getElementById('subtitlesTrackContent');
+      container.innerHTML = '';
+      if (!segments || segments.length === 0) return;
+
+      segments.forEach((seg) => {
+        const segStart = seg.start - (clipDetails.start || 0);
+        const segEnd = seg.end - (clipDetails.start || 0);
+        if (segEnd < 0 || segStart > duration) return;
+
+        const leftPct = Math.max(0, (segStart / duration) * 100);
+        const widthPct = Math.min(100 - leftPct, ((segEnd - segStart) / duration) * 100);
+
+        const el = document.createElement('div');
+        el.className = 'subtitle-cue-block';
+        el.style.left = `${leftPct}%`;
+        el.style.width = `${Math.max(3, widthPct)}%`;
+        el.innerText = seg.text || 'text';
+        el.title = `Click to edit text: ${seg.text}`;
+        el.onclick = (e) => {
+          e.stopPropagation();
+          const newTxt = prompt('Edit subtitle text:', seg.text);
+          if (newTxt !== null) {
+            seg.text = newTxt;
+            el.innerText = newTxt;
+          }
+        };
+        container.appendChild(el);
+      });
+    }
+
+    // PLAYBACK CONTROLS
+    function togglePlayPause() {
+      if (video.paused) {
+        video.play();
+        isPlaying = true;
+        playPauseBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+        document.getElementById('tlPlayIcon').innerText = '❚❚ Pause (Space)';
+      } else {
+        video.pause();
+        isPlaying = false;
+        playPauseBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+        document.getElementById('tlPlayIcon').innerText = '▶ Play (Space)';
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+        togglePlayPause();
+      }
+    });
+
+    // SFX LIBRARY (Requirement 4)
+    function previewSFX(name) {
+      const audio = new Audio(`/assets/sfx/${name}.wav`);
+      audio.play().catch(() => {});
+    }
+
+    function dropSFXAtPlayhead(name) {
+      const ct = video.currentTime;
+      sfxEvents.push({ sfx: name, time: ct });
+      
+      const track = document.getElementById('sfxTrackContent');
+      const pct = (ct / duration) * 100;
+      const marker = document.createElement('div');
+      marker.style.position = 'absolute';
+      marker.style.left = `${pct}%`;
+      marker.style.top = '4px';
+      marker.style.padding = '2px 6px';
+      marker.style.borderRadius = '4px';
+      marker.style.background = '#38bdf8';
+      marker.style.color = '#09090b';
+      marker.style.fontSize = '9px';
+      marker.style.fontWeight = '700';
+      marker.innerText = `🔊 ${name}`;
+      track.appendChild(marker);
+
+      showToast(`Added '${name}' at ${formatTimecode(ct)}`);
+    }
+
+    // REFRAME PRESETS
+    function applyReframePreset(mode) {
+      document.querySelectorAll('.preset-chip').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById(`preset${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
+      if (btn) btn.classList.add('active');
+
+      if (mode === 'center') {
+        transformState.panX = 0;
+        transformState.scale = 1.0;
+      } else if (mode === 'left') {
+        transformState.panX = 180;
+        transformState.scale = 1.15;
+      } else if (mode === 'right') {
+        transformState.panX = -180;
+        transformState.scale = 1.15;
+      } else if (mode === 'split_screen') {
+        transformState.panX = 0;
+        transformState.scale = 1.0;
+      }
+      applyVideoTransform();
+    }
+
+    function setFilter(preset) {
+      transformState.filter = preset;
+      document.querySelectorAll('#tabPanel_filters .preset-chip').forEach(b => b.classList.remove('active'));
+      document.getElementById(`filter${preset.charAt(0).toUpperCase() + preset.slice(1)}`)?.classList.add('active');
+
+      const CSS_FILTERS = {
+        none: 'none',
+        moody: 'contrast(1.18) brightness(0.95) saturate(0.90)',
+        teal_orange: 'contrast(1.15) saturate(1.25) hue-rotate(-8deg)',
+        vintage: 'sepia(0.25) contrast(1.1) brightness(1.02) saturate(0.9)',
+        crisp: 'contrast(1.25) saturate(1.15) brightness(1.02)',
+        noir: 'grayscale(1) contrast(1.3) brightness(0.95)',
+      };
+      video.style.filter = CSS_FILTERS[preset] || 'none';
+    }
+
+    function setCaptionColor(hex) {
+      transformState.highlightColor = hex;
+      showToast(`Subtitles highlight set to ${hex}`);
+    }
+
+    function setCaptionPos(pos) {
+      transformState.captionPos = pos;
+      document.querySelectorAll('#tabPanel_captions .preset-chip').forEach(b => b.classList.remove('active'));
+      document.getElementById(`capPos${pos.charAt(0).toUpperCase() + pos.slice(1)}`)?.classList.add('active');
+    }
+
+    function switchToolTab(tab) {
+      document.querySelectorAll('.toolbox-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      
+      event.currentTarget.classList.add('active');
+      document.getElementById(`tabPanel_${tab}`)?.classList.add('active');
+    }
+
+    function switchCanvasView(view) {
+      canvasViewMode = view;
+      document.querySelectorAll('.mode-switch-btn').forEach(b => b.classList.remove('active'));
+      event.currentTarget.classList.add('active');
+
+      const frame = document.getElementById('phoneCanvasFrame');
+      if (view === 'master') {
+        frame.style.width = '680px';
+        frame.style.height = '382px';
+        frame.style.borderRadius = '8px';
+        video.style.objectFit = 'contain';
+      } else {
+        frame.style.width = '320px';
+        frame.style.height = '568px';
+        frame.style.borderRadius = '18px';
+        video.style.objectFit = 'cover';
+      }
+    }
+
+    // EXPORT EDITED SHORT (Direct from master video)
+    async function exportEditedShort() {
+      const exportBtn = document.getElementById('exportBtn');
+      exportBtn.disabled = true;
+      exportBtn.innerText = 'Rendering 1080x1920...';
+
+      showToast('Rendering from full-resolution master...');
+
+      try {
+        // Map panX pixel offset (-400 to +400) to 0.0 - 1.0 crop percentage
+        const panPct = Math.max(0.0, Math.min(1.0, 0.5 - (transformState.panX / 800.0)));
+
+        const payload = {
+          clip_filename: clipFilename,
+          camera_mode: 'custom',
+          crop_x_percent: panPct,
+          zoom: transformState.scale,
+          filter_preset: transformState.filter,
+          highlight_color: transformState.highlightColor,
+          caption_position: transformState.captionPos,
+          trim_start_delta: trimStart,
+          trim_end_delta: trimEnd - duration,
+          sfx_events: sfxEvents,
+        };
+
+        const resp = await fetch('/api/clips/re-render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${resp.status}`);
+        }
+
+        showToast('Export complete! Returning to Studio...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1200);
+
+      } catch (err) {
+        alert(`Export failed: ${err.message}`);
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = `Export Short`;
+      }
+    }
+
+    function formatTimecode(secs) {
+      const s = Math.floor(secs || 0);
+      const ms = Math.floor(((secs || 0) - s) * 10);
+      const mins = Math.floor(s / 60);
+      const remSecs = s % 60;
+      return `${mins.toString().padStart(2, '0')}:${remSecs.toString().padStart(2, '0')}.${ms}`;
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('editorToast');
+      document.getElementById('editorToastMsg').innerText = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    window.addEventListener('DOMContentLoaded', initEditor);
+  </script>
+</body>
+</html>
