@@ -770,19 +770,19 @@
     <!-- LEFT TOOLBOX -->
     <aside class="left-toolbox">
       <div class="toolbox-tabs-bar">
-        <button type="button" class="toolbox-tab-btn active" onclick="switchToolTab('reframe')">
+        <button type="button" class="toolbox-tab-btn active" id="tabBtn_reframe" onclick="switchToolTab('reframe')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           Reframe
         </button>
-        <button type="button" class="toolbox-tab-btn" onclick="switchToolTab('sfx')">
+        <button type="button" class="toolbox-tab-btn" id="tabBtn_sfx" onclick="switchToolTab('sfx')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
           SFX & Audio
         </button>
-        <button type="button" class="toolbox-tab-btn" onclick="switchToolTab('captions')">
+        <button type="button" class="toolbox-tab-btn" id="tabBtn_captions" onclick="switchToolTab('captions')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
           Captions
         </button>
-        <button type="button" class="toolbox-tab-btn" onclick="switchToolTab('filters')">
+        <button type="button" class="toolbox-tab-btn" id="tabBtn_filters" onclick="switchToolTab('filters')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z"/></svg>
           Studio FX
         </button>
@@ -903,11 +903,11 @@
               <span>Glowing Completion Line</span>
             </label>
             <div id="progressBarColors" style="display: flex; gap: 8px;">
-              <button type="button" class="pb-color-btn active" style="width: 20px; height: 20px; border-radius: 50%; background: #34d399; border: 2px solid #fff; cursor: pointer;" onclick="setProgressBarColor('#34d399')"></button>
-              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #facc15; border: none; cursor: pointer;" onclick="setProgressBarColor('#facc15')"></button>
-              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #ef4444; border: none; cursor: pointer;" onclick="setProgressBarColor('#ef4444')"></button>
-              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #38bdf8; border: none; cursor: pointer;" onclick="setProgressBarColor('#38bdf8')"></button>
-              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #fafafa; border: none; cursor: pointer;" onclick="setProgressBarColor('#fafafa')"></button>
+              <button type="button" class="pb-color-btn active" style="width: 20px; height: 20px; border-radius: 50%; background: #34d399; border: 2px solid #fff; cursor: pointer;" onclick="setProgressBarColor('#34d399', this)"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #facc15; border: none; cursor: pointer;" onclick="setProgressBarColor('#facc15', this)"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #ef4444; border: none; cursor: pointer;" onclick="setProgressBarColor('#ef4444', this)"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #38bdf8; border: none; cursor: pointer;" onclick="setProgressBarColor('#38bdf8', this)"></button>
+              <button type="button" class="pb-color-btn" style="width: 20px; height: 20px; border-radius: 50%; background: #fafafa; border: none; cursor: pointer;" onclick="setProgressBarColor('#fafafa', this)"></button>
             </div>
           </div>
 
@@ -919,15 +919,6 @@
               <input type="checkbox" id="chkAudioMastering" checked style="accent-color: var(--emerald); width: 16px; height: 16px;">
               <span>Broadcast Standards (-14 LUFS)</span>
             </label>
-          </div>
-        </div>
-          <div class="reframe-presets-grid">
-            <button type="button" class="preset-chip active" id="filterNone" onclick="setFilter('none')">Original</button>
-            <button type="button" class="preset-chip" id="filterMoody" onclick="setFilter('moody')">Moody Zinc</button>
-            <button type="button" class="preset-chip" id="filterTeal" onclick="setFilter('teal_orange')">Teal & Orange</button>
-            <button type="button" class="preset-chip" id="filterVintage" onclick="setFilter('vintage')">Vintage 35mm</button>
-            <button type="button" class="preset-chip" id="filterCrisp" onclick="setFilter('crisp')">Crisp 4K</button>
-            <button type="button" class="preset-chip" id="filterNoir" onclick="setFilter('noir')">Noir B&W</button>
           </div>
         </div>
       </div>
@@ -1436,7 +1427,7 @@
       showToast(enabled ? 'Glowing progress bar enabled' : 'Progress bar disabled');
     }
 
-    function setProgressBarColor(color) {
+    function setProgressBarColor(color, btnEl) {
       transformState.progressBarColor = color;
       const line = document.getElementById('phoneProgressLine');
       if (line) {
@@ -1444,7 +1435,9 @@
         line.style.boxShadow = `0 0 10px ${color}`;
       }
       document.querySelectorAll('#progressBarColors .pb-color-btn').forEach(b => b.style.border = 'none');
-      if (event && event.currentTarget) event.currentTarget.style.border = '2px solid #fff';
+      if (btnEl) {
+        btnEl.style.border = '2px solid #fff';
+      }
       showToast(`Progress bar color set to ${color}`);
     }
 
@@ -1503,14 +1496,17 @@
       document.querySelectorAll('.toolbox-tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       
-      event.currentTarget.classList.add('active');
-      document.getElementById(`tabPanel_${tab}`)?.classList.add('active');
+      const tabBtn = document.getElementById(`tabBtn_${tab}`);
+      if (tabBtn) tabBtn.classList.add('active');
+      const panel = document.getElementById(`tabPanel_${tab}`);
+      if (panel) panel.classList.add('active');
     }
 
     function switchCanvasView(view) {
       canvasViewMode = view;
       document.querySelectorAll('.mode-switch-btn').forEach(b => b.classList.remove('active'));
-      event.currentTarget.classList.add('active');
+      const activeBtn = view === 'phone' ? document.getElementById('btnViewPhone') : document.getElementById('btnViewMaster');
+      if (activeBtn) activeBtn.classList.add('active');
 
       const frame = document.getElementById('phoneCanvasFrame');
       if (view === 'master') {
